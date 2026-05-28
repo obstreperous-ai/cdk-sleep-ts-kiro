@@ -1,8 +1,16 @@
-# Welcome to your CDK TypeScript project
+# CDK Sleep Audio Pipeline
 
-This is a blank project for CDK development with TypeScript.
+This is an AWS CDK TypeScript project implementing an event-driven sleep audio processing pipeline. Raw sleep audio recordings are uploaded to S3, which triggers an EventBridge rule that invokes a Lambda function for audio analysis and transcoding. Processed results are stored in a separate S3 bucket and DynamoDB table, with SNS notifications sent upon completion.
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+## TDD Rules
+
+This project follows strict Test-Driven Development:
+
+1. **Always write a failing test first** before any implementation code.
+2. **Write the minimal code** to make the failing test pass.
+3. **Keep ARCHITECTURE.md in sync** with every infrastructure change, including the Mermaid diagram.
+
+Never push code that does not have a corresponding test written before the implementation.
 
 ## Useful commands
 
