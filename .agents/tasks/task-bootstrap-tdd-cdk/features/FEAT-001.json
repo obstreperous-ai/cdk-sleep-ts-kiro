@@ -1,0 +1,25 @@
+{
+  "id": "FEAT-001",
+  "type": "chore",
+  "description": "Configure Jest + CDK assertions for fine-grained and snapshot tests, fix the existing placeholder test to be a proper CDK stack assertion test, and ensure the test infrastructure is working correctly.",
+  "status": "in_progress",
+  "steps": [
+    "Update jest.config.js to add snapshotSerializers if needed and ensure configuration supports both fine-grained assertions and snapshot tests with ts-jest. Remove the setupFilesAfterEnv entry for 'aws-cdk-lib/testhelpers/jest-autoclean' if it causes issues (verify first).",
+    "Rewrite test/cdk-base.test.ts to be an actual working test that imports the stack, creates it, and uses Template.fromStack() from 'aws-cdk-lib/assertions' to verify the stack synthesizes correctly (even if empty). Add both a fine-grained assertion test and a snapshot test.",
+    "Verify that 'unset NODE_OPTIONS && npx jest' passes with the updated tests.",
+    "Verify that 'unset NODE_OPTIONS && npx cdk synth' succeeds."
+  ],
+  "acceptance_criteria": [
+    "jest.config.js is properly configured for CDK assertion tests",
+    "test/cdk-base.test.ts contains working tests using Template.fromStack() from aws-cdk-lib/assertions",
+    "At least one fine-grained assertion test and one snapshot test exist",
+    "Running 'unset NODE_OPTIONS && npx jest' passes all tests",
+    "Running 'unset NODE_OPTIONS && npx cdk synth' produces a CloudFormation template"
+  ],
+  "verification": [
+    "unset NODE_OPTIONS && npx jest",
+    "unset NODE_OPTIONS && npx cdk synth"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

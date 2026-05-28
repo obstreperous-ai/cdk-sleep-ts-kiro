@@ -1,17 +1,29 @@
-// import * as cdk from 'aws-cdk-lib/core';
-// import { Template } from 'aws-cdk-lib/assertions';
-// import * as CdkBase from '../lib/cdk-base-stack';
+import * as cdk from 'aws-cdk-lib/core';
+import { Template } from 'aws-cdk-lib/assertions';
+import { CdkBaseStack } from '../lib/cdk-base-stack';
 
-// example test. To run these tests, uncomment this file along with the
-// example resource in lib/cdk-base-stack.ts
-test('SQS Queue Created', () => {
-//   const app = new cdk.App();
-//     // WHEN
-//   const stack = new CdkBase.CdkBaseStack(app, 'MyTestStack');
-//     // THEN
-//   const template = Template.fromStack(stack);
+describe('CdkBaseStack', () => {
+  let template: Template;
 
-//   template.hasResourceProperties('AWS::SQS::Queue', {
-//     VisibilityTimeout: 300
-//   });
+  beforeAll(() => {
+    const app = new cdk.App();
+    const stack = new CdkBaseStack(app, 'TestStack');
+    template = Template.fromStack(stack);
+  });
+
+  test('synthesizes a valid CloudFormation template', () => {
+    const json = template.toJSON();
+    expect(json).toBeDefined();
+    expect(json).toHaveProperty('Parameters');
+    expect(json.Parameters).toHaveProperty('BootstrapVersion');
+  });
+
+  test('has no application resources', () => {
+    template.resourceCountIs('AWS::SQS::Queue', 0);
+    template.resourceCountIs('AWS::Lambda::Function', 0);
+  });
+
+  test('matches snapshot', () => {
+    expect(template.toJSON()).toMatchSnapshot();
+  });
 });
