@@ -21,4 +21,15 @@ jobs:
 
       - run: npx cdk synth
 
-      - run: npx cdk diff || true
+      - name: Run CDK diff
+        id: cdk-diff
+        continue-on-error: true
+        run: npx cdk diff
+
+      - name: Report CDK diff failure
+        if: steps.cdk-diff.outcome == 'failure'
+        run: |
+          echo "::warning::CDK diff failed. This step is non-blocking, but the failure has been surfaced for review."
+          echo "### CDK diff warning" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`npx cdk diff\` failed during CI. This does not block the workflow, but it indicates the diff was not successfully produced." >> "$GITHUB_STEP_SUMMARY"
