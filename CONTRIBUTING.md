@@ -49,6 +49,17 @@ Use descriptive branch names with a prefix:
 - `chore/` - Maintenance branches (e.g., `chore/update-dependencies`)
 - `docs/` - Documentation branches (e.g., `docs/update-architecture`)
 
+## Architecture Reference
+
+[ARCHITECTURE.md](./ARCHITECTURE.md) is the **single source of truth** for system design in this project.
+
+- Before making infrastructure changes, review ARCHITECTURE.md to understand the current design
+- Any pull request that adds, removes, or modifies AWS resources **must** update ARCHITECTURE.md to reflect the change
+- The Mermaid diagram in ARCHITECTURE.md must stay in sync with the written description - if you change one, update the other
+- When adding new processing steps, update both the Data Flow section and the diagram
+
+If you are unsure whether your change requires an architecture doc update, err on the side of updating it.
+
 ## Pull Request Process
 
 1. Create a feature branch from `main`.
