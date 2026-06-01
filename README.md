@@ -1,6 +1,6 @@
 # CDK Sleep Audio Pipeline
 
-This is an AWS CDK TypeScript project implementing an event-driven sleep audio processing pipeline. Raw sleep audio recordings are uploaded to S3, which triggers an EventBridge rule that invokes a Lambda function for audio analysis and transcoding. Processed results are stored in a separate S3 bucket and DynamoDB table, with SNS notifications sent upon completion.
+This is an AWS CDK TypeScript project for building an event-driven sleep audio processing pipeline. The planned target architecture is for raw sleep audio recordings to be uploaded to S3, which would trigger an EventBridge rule that invokes a Lambda function for audio analysis and transcoding. Processed results would then be stored in a separate S3 bucket and DynamoDB table, with SNS notifications sent upon completion once those resources are added.
 
 ## TDD Rules
 
