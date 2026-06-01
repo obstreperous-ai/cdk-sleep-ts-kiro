@@ -1,5 +1,7 @@
 # Architecture
 
+> **Status:** This document describes the *target architecture design* for the sleep audio pipeline. The CDK stack is currently a scaffold; implementation of individual components is tracked in subsequent issues. Sections below represent the planned system, not necessarily the current deployed state.
+
 ## High-Level Overview
 
 This project implements an **event-driven sleep audio pipeline** using AWS CDK (TypeScript). The system ingests raw audio files, orchestrates multi-step processing through AWS Step Functions, and delivers processed audio alongside structured metadata to downstream consumers.
@@ -107,17 +109,13 @@ flowchart TD
     EB --> SFN[Step Functions State Machine]
 
     SFN --> LambdaValidate[Lambda: Validation]
-    SFN --> LambdaPolly[Lambda: Polly Synthesis]
-    SFN --> LambdaBedrock[Lambda: Bedrock Enhancement]
-    SFN --> LambdaMetadata[Lambda: Metadata Extraction]
+    LambdaValidate --> LambdaPolly[Lambda: Polly Synthesis]
+    LambdaValidate --> LambdaBedrock[Lambda: Bedrock Enhancement]
+    LambdaPolly --> LambdaMetadata[Lambda: Metadata Extraction]
+    LambdaBedrock --> LambdaMetadata
 
-    LambdaValidate --> SFN
-    LambdaPolly --> SFN
-    LambdaBedrock --> SFN
-    LambdaMetadata --> SFN
-
-    SFN --> S3Output[S3 Output Bucket - Versioned]
-    SFN --> DynamoDB[DynamoDB Metadata Table]
+    LambdaMetadata --> S3Output[S3 Output Bucket - Versioned]
+    LambdaMetadata --> DynamoDB[DynamoDB Metadata Table]
     SFN --> SNS[SNS Notifications]
 
     SNS --> Subscribers([Subscribers: Apps / Dashboards])
