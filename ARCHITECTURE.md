@@ -26,7 +26,7 @@ The pipeline processes audio through the following stages:
 
 Users or client applications upload raw audio files to the **S3 Input Bucket**. This bucket is configured with:
 
-- Blocked public access (all public access settings disabled)
+- Blocked public access (all public access settings blocked)
 - Server-side encryption via AWS KMS
 - Event notifications enabled for object creation
 
