@@ -247,20 +247,19 @@ The pipeline supports **dev**, **stage**, and **prod** environments through CDK 
 
 ### Configuration via CDK Context
 
-```typescript
-// cdk.json or via -c flag
+~~~json
 {
   "context": {
-    "environment": "dev",       // dev | stage | prod
-    "enableBedrock": false,     // optional AI enhancement
-    "logRetentionDays": 7,      // per-environment log retention
+    "environment": "dev",
+    "enableBedrock": false,
+    "logRetentionDays": 7,
     "alarmThresholds": {
-      "errorRate": 10,          // percentage
-      "latencyMs": 120000       // milliseconds
+      "errorRate": 10,
+      "latencyMs": 120000
     }
   }
 }
-```
+~~~
 
 ### Environment Differences
 
