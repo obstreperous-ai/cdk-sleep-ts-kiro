@@ -1,8 +1,36 @@
 # Architecture
 
-> **Status:** This document describes the *target architecture design* for the sleep audio pipeline. The CDK stack is currently a scaffold; implementation of individual components is tracked in subsequent issues. Sections below represent the planned system, not necessarily the current deployed state.
+> **Status:** This document describes both the *currently implemented* resources and the *target architecture design* for the sleep audio pipeline. See the "Currently Implemented" section for what exists in the CDK stack today. The remaining sections describe the planned system.
 
-## High-Level Overview
+## Currently Implemented
+
+The following resources are deployed in the CDK stack today:
+
+| Resource | Construct ID | Description |
+|----------|-------------|-------------|
+| **S3 Input Bucket** | `SleepAudioInputBucket` | Receives raw audio uploads. S3-managed encryption (AES256), versioning enabled, all public access blocked, EventBridge notifications enabled. |
+| **S3 Output Bucket** | `SleepAudioOutputBucket` | Stores processed audio output. S3-managed encryption (AES256), versioning enabled, all public access blocked. |
+| **EventBridge Rule** | `AudioUploadRule` | Triggers on `Object Created` events from the input bucket. |
+| **Placeholder Lambda** | `PlaceholderProcessingFunction` | Stub target for the EventBridge rule. Will be replaced with real processing logic in a future feature. |
+
+### Implemented Architecture Diagram
+
+```mermaid
+flowchart TD
+    User([User / Client App]) --> S3Input[S3 Input Bucket]
+    S3Input -->|Object Created event| EB[EventBridge Rule]
+    EB --> PlaceholderLambda[Placeholder Lambda]
+    S3Output[S3 Output Bucket]
+
+    style PlaceholderLambda stroke-dasharray: 5 5
+    style S3Output stroke-dasharray: 5 5
+```
+
+> The placeholder Lambda and the output bucket are provisioned but not yet connected by processing logic.
+
+---
+
+## High-Level Overview (Target Architecture)
 
 This project implements an **event-driven sleep audio pipeline** using AWS CDK (TypeScript). The system ingests raw audio files, orchestrates multi-step processing through AWS Step Functions, and delivers processed audio alongside structured metadata to downstream consumers.
 
@@ -99,7 +127,7 @@ Downstream consumers (mobile apps, dashboards, analytics pipelines) subscribe to
 
 ---
 
-## Diagram
+## Diagram (Target Architecture)
 
 ```mermaid
 flowchart TD
