@@ -1,0 +1,22 @@
+{
+  "id": "FEAT-001",
+  "type": "chore",
+  "description": "Install dependencies and verify the existing baseline is green (tests pass, cdk synth works).",
+  "status": "completed",
+  "steps": [
+    "Run 'npm install' in /projects/sandbox/cdk-sleep-ts-kiro to install node_modules.",
+    "Run 'unset NODE_OPTIONS && npx jest' to confirm existing tests pass.",
+    "Run 'unset NODE_OPTIONS && npx cdk synth' to confirm CDK synthesis succeeds."
+  ],
+  "acceptance_criteria": [
+    "npm install completes without errors",
+    "All existing tests pass (npx jest exits 0)",
+    "npx cdk synth produces a CloudFormation template without errors"
+  ],
+  "verification": [
+    "unset NODE_OPTIONS && npx jest",
+    "unset NODE_OPTIONS && npx cdk synth"
+  ],
+  "blocked_reason": null,
+  "findings": "NODE_OPTIONS must be unset before running any node/npm/npx commands in this environment (proxy-bootstrap.js not found error). npm install produces deprecation warnings for inflight@1.0.6 and glob@7/10 but completes successfully. ts-jest emits TS151002 warning about hybrid module kind but tests pass. cdk synth outputs CDKMetadata resource and CDKMetadataAvailable condition by default."
+}

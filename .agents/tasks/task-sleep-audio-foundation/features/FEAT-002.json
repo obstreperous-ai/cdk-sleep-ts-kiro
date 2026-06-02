@@ -1,0 +1,30 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Implement S3 Input Bucket, S3 Output Bucket, and EventBridge Rule using strict TDD. Write failing tests first in the test file, then implement the minimal CDK code in the stack to make them pass. Update ARCHITECTURE.md to reflect the new resources. Update snapshot.",
+  "status": "pending",
+  "steps": [
+    "Step 1 - Write failing tests: In test/cdk-base.test.ts, add new test cases using Template.fromStack() and CDK assertions that verify: (a) An S3 bucket 'SleepAudioInputBucket' exists with SSE-KMS or S3-managed encryption, versioning enabled, and BlockPublicAccess set to BLOCK_ALL. (b) An S3 bucket 'SleepAudioOutputBucket' exists with encryption and versioning enabled. (c) An EventBridge rule exists with an event pattern matching Object Created events from the input bucket. (d) The EventBridge rule has at least one target. (e) The existing test 'has no application resources' should be removed or updated since we are now adding resources. (f) The snapshot test remains but its snapshot file will need updating.",
+    "Step 2 - Run tests to confirm they fail: Run 'unset NODE_OPTIONS && npx jest' to confirm the new tests fail (red phase of TDD).",
+    "Step 3 - Implement minimal CDK code: In lib/cdk-base-stack.ts, add the following resources using L2 constructs: (a) Import aws-cdk-lib/aws-s3, aws-cdk-lib/aws-events, aws-cdk-lib/aws-events-targets, and aws-cdk-lib/aws-lambda (for stub target). (b) Create an S3 Bucket 'SleepAudioInputBucket' with encryption (BucketEncryption.S3_MANAGED or KMS), versioning enabled, blockPublicAccess set to BlockPublicAccess.BLOCK_ALL, and eventBridgeEnabled set to true (this is required to send S3 events to EventBridge). (c) Create an S3 Bucket 'SleepAudioOutputBucket' with encryption, versioning enabled, and blockPublicAccess BLOCK_ALL. (d) Create an EventBridge Rule that matches Object Created events from the input bucket. The event pattern should be: source=['aws.s3'], detailType=['Object Created'], detail: { bucket: { name: [inputBucket.bucketName] } }. (e) Add a placeholder/stub target to the rule. Since a Lambda function would be the simplest stub target, create a minimal Lambda function (inline code, noop handler) as a placeholder target for the rule using aws-cdk-lib/aws-lambda and aws_events_targets.LambdaFunction.",
+    "Step 4 - Run tests to confirm they pass: Run 'unset NODE_OPTIONS && npx jest --updateSnapshot' to confirm all tests pass (green phase).",
+    "Step 5 - Run CDK synth: Run 'unset NODE_OPTIONS && npx cdk synth' to confirm the stack synthesizes correctly.",
+    "Step 6 - Update ARCHITECTURE.md: Update the Mermaid diagram and description to accurately reflect the currently-implemented resources (Input Bucket, Output Bucket, EventBridge Rule, placeholder Lambda target). Mark the rest of the pipeline as 'planned/future'. Keep the diagram focused on what actually exists in the code now while acknowledging the broader planned architecture."
+  ],
+  "acceptance_criteria": [
+    "Tests verify SleepAudioInputBucket exists with encryption and versioning",
+    "Tests verify SleepAudioOutputBucket exists with encryption and versioning",
+    "Tests verify an EventBridge rule with correct event pattern for Object Created from the input bucket",
+    "Tests verify the EventBridge rule has a target configured",
+    "All tests pass with 'unset NODE_OPTIONS && npx jest'",
+    "'unset NODE_OPTIONS && npx cdk synth' succeeds without errors",
+    "ARCHITECTURE.md Mermaid diagram and description are updated to reflect implemented resources",
+    "Snapshot test is updated to match the new stack output"
+  ],
+  "verification": [
+    "unset NODE_OPTIONS && npx jest",
+    "unset NODE_OPTIONS && npx cdk synth"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

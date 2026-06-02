@@ -1,0 +1,7 @@
+{
+  "task_id": "task-sleep-audio-foundation",
+  "task_description": "Implement foundational infrastructure for the Sleep Audio Pipeline using strict TDD: Input S3 Bucket (encrypted, versioned, EventBridge-enabled), Output S3 Bucket (encrypted, versioned), and EventBridge Rule triggered on Object Created events from the input bucket with a placeholder target.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}
