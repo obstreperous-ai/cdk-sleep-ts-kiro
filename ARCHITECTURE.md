@@ -48,8 +48,7 @@ The **Step Functions state machine** orchestrates the full processing workflow. 
 
 - Verifies file format, size constraints, and audio integrity
 - Extracts basic metadata (duration, sample rate, codec)
-- Rejects invalid files early, sending an error notification via SNS
-
+- Rejects invalid files early; the workflow publishes an error notification via SNS
 #### 3b. Polly Synthesis Lambda
 
 - Uses **Amazon Polly** to generate soothing text-to-speech narration
