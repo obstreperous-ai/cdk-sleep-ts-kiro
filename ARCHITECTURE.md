@@ -157,8 +157,7 @@ flowchart TD
 - Each Lambda function has a dedicated execution role with only the permissions required for its specific task
 - The Step Functions execution role can only invoke the Lambda tasks it orchestrates
 - S3 bucket policies restrict access to authorized principals only
-- No wildcard (`*`) resource permissions are used
-
+- Avoid wildcard (`*`) resource permissions where possible; if required, scope them to the narrowest practical actions and resources
 ### Encryption at Rest
 
 - All S3 buckets use SSE-KMS (AWS KMS-managed keys) for server-side encryption
