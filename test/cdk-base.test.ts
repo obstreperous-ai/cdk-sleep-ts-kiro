@@ -1,5 +1,5 @@
 import * as cdk from 'aws-cdk-lib/core';
-import { Template } from 'aws-cdk-lib/assertions';
+import { Match, Template } from 'aws-cdk-lib/assertions';
 import { CdkBaseStack } from '../lib/cdk-base-stack';
 
 describe('CdkBaseStack', () => {
@@ -16,6 +16,10 @@ describe('CdkBaseStack', () => {
     expect(json).toBeDefined();
     expect(json).toHaveProperty('Parameters');
     expect(json.Parameters).toHaveProperty('BootstrapVersion');
+  });
+
+  test('creates exactly two S3 buckets', () => {
+    template.resourceCountIs('AWS::S3::Bucket', 2);
   });
 
   describe('S3 Input Bucket', () => {
@@ -48,6 +52,17 @@ describe('CdkBaseStack', () => {
           BlockPublicPolicy: true,
           IgnorePublicAcls: true,
           RestrictPublicBuckets: true,
+        },
+      });
+    });
+
+    test('has EventBridge notifications enabled', () => {
+      template.hasResourceProperties('Custom::S3BucketNotifications', {
+        BucketName: {
+          Ref: Match.stringLikeRegexp('SleepAudioInputBucket'),
+        },
+        NotificationConfiguration: {
+          EventBridgeConfiguration: {},
         },
       });
     });
