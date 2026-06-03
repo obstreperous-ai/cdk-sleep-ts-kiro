@@ -1,0 +1,7 @@
+{
+  "task_id": "task-stepfunctions-polly",
+  "task_description": "Implement a Step Functions state machine skeleton triggered by the EventBridge rule, with a minimal Amazon Polly integration as a Task state. Follow strict TDD: write failing tests first, then minimal CDK code. Update ARCHITECTURE.md with the new orchestration layer.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
+  "blocked_reason": null
+}

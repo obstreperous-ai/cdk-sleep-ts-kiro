@@ -1,0 +1,24 @@
+{
+  "id": "FEAT-003",
+  "type": "docs",
+  "description": "Update ARCHITECTURE.md to reflect the new Step Functions state machine and Polly integration. Update the 'Currently Implemented' section and Mermaid diagram to show the state machine replacing the placeholder Lambda, with EventBridge triggering Step Functions which invokes Polly.",
+  "status": "pending",
+  "steps": [
+    "Step 1 - Update the 'Currently Implemented' table in ARCHITECTURE.md: Remove the Placeholder Lambda row. Add rows for: (a) Step Functions State Machine (SleepAudioPipelineStateMachine) - orchestrates audio processing pipeline with CloudWatch logging, (b) Polly Task State - invokes Amazon Polly StartSpeechSynthesisTask for text-to-speech synthesis. Update the EventBridge rule description to note it now targets the Step Functions state machine.",
+    "Step 2 - Update the 'Implemented Architecture Diagram' Mermaid diagram: Replace the PlaceholderLambda node with SFN[Step Functions State Machine]. Add a PollyTask[Polly: StartSpeechSynthesisTask] node connected from SFN. Show the flow: User -> S3Input -> EventBridge -> Step Functions -> Polly Task. Connect the output bucket node as the Polly output destination. Remove dashed styling from the state machine (it is now implemented). Keep S3Output with dashed styling if it is not yet fully wired in application logic.",
+    "Step 3 - Add a new section 'Orchestration Layer' after the Currently Implemented section that briefly describes: The Step Functions state machine serves as the central orchestrator for the audio processing pipeline. It is triggered by EventBridge when new audio files are uploaded to the input bucket. Currently it contains a single Polly task state that synthesizes speech. Future states will be added for validation, Bedrock enhancement, and metadata extraction.",
+    "Step 4 - Verify the markdown renders correctly by checking no syntax errors in Mermaid blocks."
+  ],
+  "acceptance_criteria": [
+    "Currently Implemented table lists Step Functions State Machine and Polly Task State instead of Placeholder Lambda",
+    "Implemented Architecture Mermaid diagram shows EventBridge -> Step Functions -> Polly Task flow",
+    "New Orchestration Layer section exists describing the state machine's role",
+    "No markdown syntax errors in the file"
+  ],
+  "verification": [
+    "Read ARCHITECTURE.md and confirm it contains updated content with Step Functions and Polly references",
+    "Confirm the Mermaid diagram syntax is valid (flowchart TD with proper node/edge syntax)"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
