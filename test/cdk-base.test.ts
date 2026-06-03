@@ -1,5 +1,5 @@
 import * as cdk from 'aws-cdk-lib/core';
-import { Template } from 'aws-cdk-lib/assertions';
+import { Match, Template } from 'aws-cdk-lib/assertions';
 import { CdkBaseStack } from '../lib/cdk-base-stack';
 
 describe('CdkBaseStack', () => {
@@ -18,9 +18,94 @@ describe('CdkBaseStack', () => {
     expect(json.Parameters).toHaveProperty('BootstrapVersion');
   });
 
-  test('has no application resources', () => {
-    template.resourceCountIs('AWS::SQS::Queue', 0);
-    template.resourceCountIs('AWS::Lambda::Function', 0);
+  test('creates exactly two S3 buckets', () => {
+    template.resourceCountIs('AWS::S3::Bucket', 2);
+  });
+
+  describe('S3 Input Bucket', () => {
+    test('exists with S3-managed encryption', () => {
+      template.hasResourceProperties('AWS::S3::Bucket', {
+        BucketEncryption: {
+          ServerSideEncryptionConfiguration: [
+            {
+              ServerSideEncryptionByDefault: {
+                SSEAlgorithm: 'AES256',
+              },
+            },
+          ],
+        },
+      });
+    });
+
+    test('has versioning enabled', () => {
+      template.hasResourceProperties('AWS::S3::Bucket', {
+        VersioningConfiguration: {
+          Status: 'Enabled',
+        },
+      });
+    });
+
+    test('has BlockPublicAccess set to BLOCK_ALL', () => {
+      template.hasResourceProperties('AWS::S3::Bucket', {
+        PublicAccessBlockConfiguration: {
+          BlockPublicAcls: true,
+          BlockPublicPolicy: true,
+          IgnorePublicAcls: true,
+          RestrictPublicBuckets: true,
+        },
+      });
+    });
+
+    test('has EventBridge notifications enabled', () => {
+      template.hasResourceProperties('Custom::S3BucketNotifications', {
+        BucketName: {
+          Ref: Match.stringLikeRegexp('SleepAudioInputBucket'),
+        },
+        NotificationConfiguration: {
+          EventBridgeConfiguration: {},
+        },
+      });
+    });
+  });
+
+  describe('S3 Output Bucket', () => {
+    test('exists with encryption and versioning enabled', () => {
+      template.hasResourceProperties('AWS::S3::Bucket', {
+        BucketEncryption: {
+          ServerSideEncryptionConfiguration: [
+            {
+              ServerSideEncryptionByDefault: {
+                SSEAlgorithm: 'AES256',
+              },
+            },
+          ],
+        },
+        VersioningConfiguration: {
+          Status: 'Enabled',
+        },
+      });
+    });
+  });
+
+  describe('EventBridge Rule', () => {
+    test('exists with correct event pattern for Object Created', () => {
+      template.hasResourceProperties('AWS::Events::Rule', {
+        EventPattern: {
+          source: ['aws.s3'],
+          'detail-type': ['Object Created'],
+        },
+      });
+    });
+
+    test('has a target configured', () => {
+      template.hasResourceProperties('AWS::Events::Rule', {
+        Targets: [
+          {
+            Arn: {},
+          },
+        ],
+      });
+    });
   });
 
   test('matches snapshot', () => {
