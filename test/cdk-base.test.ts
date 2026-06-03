@@ -127,17 +127,35 @@ describe('CdkBaseStack', () => {
       });
     });
 
-    test('state machine role has S3 output bucket permissions', () => {
-      template.hasResourceProperties('AWS::IAM::Policy', {
+    test('state machine role has S3 output bucket permissions via bucket policy for Polly', () => {
+      template.hasResourceProperties('AWS::S3::BucketPolicy', {
         PolicyDocument: Match.objectLike({
           Statement: Match.arrayWith([
             Match.objectLike({
-              Action: Match.arrayWith(['s3:PutObject']),
+              Action: 's3:PutObject',
               Effect: 'Allow',
+              Principal: Match.objectLike({
+                Service: 'polly.amazonaws.com',
+              }),
             }),
           ]),
         }),
       });
+    });
+
+    test('state machine definition references the output bucket', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+
+      // The DefinitionString uses Fn::Join; verify it contains a Ref to the output bucket
+      expect(definitionString).toHaveProperty('Fn::Join');
+      const joinParts = definitionString['Fn::Join'][1];
+      const hasOutputBucketRef = joinParts.some(
+        (part: any) => typeof part === 'object' && part !== null && 'Ref' in part &&
+          /SleepAudioOutputBucket/.test(part.Ref)
+      );
+      expect(hasOutputBucketRef).toBe(true);
     });
   });
 

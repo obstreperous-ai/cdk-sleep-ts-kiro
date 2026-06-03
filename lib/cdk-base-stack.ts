@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib/core';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
@@ -37,9 +38,11 @@ export class CdkBaseStack extends cdk.Stack {
       parameters: {
         OutputFormat: 'mp3',
         OutputS3BucketName: outputBucket.bucketName,
-        Text: sfn.JsonPath.stringAt('$.text'),
+        OutputS3KeyPrefix: sfn.JsonPath.stringAt('$.detail.object.key'),
+        Text: 'Placeholder text for sleep audio synthesis',
         VoiceId: 'Joanna',
       },
+      // Polly APIs do not support resource-level IAM restrictions, so a wildcard is required.
       iamResources: ['*'],
       iamAction: 'polly:StartSpeechSynthesisTask',
       resultPath: '$.pollyResult',
@@ -57,8 +60,13 @@ export class CdkBaseStack extends cdk.Stack {
       },
     });
 
-    // Grant the state machine permission to write to the output bucket
-    outputBucket.grantPut(stateMachine);
+    // Allow the Polly service to write synthesized audio to the output bucket.
+    // Polly writes to S3 using its own service credentials, not the caller's role.
+    outputBucket.addToResourcePolicy(new iam.PolicyStatement({
+      actions: ['s3:PutObject'],
+      resources: [outputBucket.arnForObjects('*')],
+      principals: [new iam.ServicePrincipal('polly.amazonaws.com')],
+    }));
 
     const rule = new events.Rule(this, 'AudioUploadRule', {
       eventPattern: {

@@ -314,6 +314,40 @@ def sort_filter_rules(json_obj):
       "Type": "AWS::S3::Bucket",
       "UpdateReplacePolicy": "Retain",
     },
+    "SleepAudioOutputBucketPolicy845AB73B": {
+      "Properties": {
+        "Bucket": {
+          "Ref": "SleepAudioOutputBucketBD13D91D",
+        },
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "s3:PutObject",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "polly.amazonaws.com",
+              },
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Fn::GetAtt": [
+                        "SleepAudioOutputBucketBD13D91D",
+                        "Arn",
+                      ],
+                    },
+                    "/*",
+                  ],
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+      },
+      "Type": "AWS::S3::BucketPolicy",
+    },
     "SleepAudioPipelineStateMachine741D1700": {
       "DeletionPolicy": "Delete",
       "DependsOn": [
@@ -333,7 +367,7 @@ def sort_filter_rules(json_obj):
               {
                 "Ref": "SleepAudioOutputBucketBD13D91D",
               },
-              "","Text.$":"$.text","VoiceId":"Joanna"}},"Done":{"Type":"Succeed"}}}",
+              "","OutputS3KeyPrefix.$":"$.detail.object.key","Text":"Placeholder text for sleep audio synthesis","VoiceId":"Joanna"}},"Done":{"Type":"Succeed"}}}",
             ],
           ],
         },
@@ -442,31 +476,6 @@ def sort_filter_rules(json_obj):
               ],
               "Effect": "Allow",
               "Resource": "*",
-            },
-            {
-              "Action": [
-                "s3:PutObject",
-                "s3:PutObjectLegalHold",
-                "s3:PutObjectRetention",
-                "s3:PutObjectTagging",
-                "s3:PutObjectVersionTagging",
-                "s3:Abort*",
-              ],
-              "Effect": "Allow",
-              "Resource": {
-                "Fn::Join": [
-                  "",
-                  [
-                    {
-                      "Fn::GetAtt": [
-                        "SleepAudioOutputBucketBD13D91D",
-                        "Arn",
-                      ],
-                    },
-                    "/*",
-                  ],
-                ],
-              },
             },
           ],
           "Version": "2012-10-17",

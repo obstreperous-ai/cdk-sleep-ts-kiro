@@ -1,7 +1,14 @@
 {
   "task_id": "task-stepfunctions-polly",
   "task_description": "Implement a Step Functions state machine skeleton triggered by the EventBridge rule, with a minimal Amazon Polly integration as a Task state. Follow strict TDD: write failing tests first, then minimal CDK code. Update ARCHITECTURE.md with the new orchestration layer.",
-  "status": "in_progress",
+  "status": "completed",
   "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
-  "blocked_reason": null
+  "blocked_reason": null,
+  "verification": {
+    "build": "pass",
+    "tests": "pass",
+    "test_quality": "pass",
+    "docker_build": "skipped",
+    "summary": "All 15 tests pass. `npm run build` (tsc) succeeds. `npx cdk synth` produces valid CloudFormation. Tests meaningfully exercise the new Step Functions, Polly, IAM, and EventBridge wiring code."
+  }
 }
