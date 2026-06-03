@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "feat",
   "description": "Implement Step Functions state machine with Polly integration and EventBridge wiring using strict TDD. Write failing tests first, then implement the minimal CDK code to make them pass. The state machine should be triggered by the EventBridge rule (replacing the placeholder Lambda) and contain a Polly StartSpeechSynthesisTask state.",
-  "status": "pending",
+  "status": "in_progress",
   "steps": [
     "Step 1 - Write failing tests in test/cdk-base.test.ts (TDD red phase). Add a new describe block 'Step Functions State Machine' with tests that verify: (a) A state machine resource exists (AWS::StepFunctions::StateMachine), (b) The state machine definition contains a Polly task state (check DefinitionString for polly:StartSpeechSynthesisTask or similar), (c) The state machine has CloudWatch Logs logging enabled (LoggingConfiguration with level ALL), (d) The state machine execution role has least-privilege IAM permissions for Polly (polly:StartSpeechSynthesisTask) and S3 output bucket (s3:PutObject). Also update the existing EventBridge tests: (e) The EventBridge rule target now targets the state machine (AWS::StepFunctions::StateMachine ARN) instead of the Lambda, (f) Verify RoleArn is set on the EventBridge target (needed for Step Functions targets). Remove the test asserting the placeholder Lambda target exists. Remove the 'has a target configured' test that checks for a generic Arn.",
     "Step 2 - Run `npm test` to confirm the new tests fail (TDD red phase confirmed).",

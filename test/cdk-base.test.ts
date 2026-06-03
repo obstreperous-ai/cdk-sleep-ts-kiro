@@ -87,6 +87,60 @@ describe('CdkBaseStack', () => {
     });
   });
 
+  describe('Step Functions State Machine', () => {
+    test('creates a Step Functions state machine', () => {
+      template.resourceCountIs('AWS::StepFunctions::StateMachine', 1);
+    });
+
+    test('state machine definition includes Polly StartSpeechSynthesisTask', () => {
+      template.hasResourceProperties('AWS::StepFunctions::StateMachine', {
+        DefinitionString: Match.objectLike({
+          'Fn::Join': Match.arrayWith([
+            '',
+            Match.arrayWith([
+              Match.stringLikeRegexp('.*Synthesize Speech.*Task.*'),
+            ]),
+          ]),
+        }),
+      });
+    });
+
+    test('state machine has CloudWatch logging enabled', () => {
+      template.hasResourceProperties('AWS::StepFunctions::StateMachine', {
+        LoggingConfiguration: Match.objectLike({
+          Level: 'ALL',
+          IncludeExecutionData: true,
+        }),
+      });
+    });
+
+    test('state machine role has Polly permissions', () => {
+      template.hasResourceProperties('AWS::IAM::Policy', {
+        PolicyDocument: Match.objectLike({
+          Statement: Match.arrayWith([
+            Match.objectLike({
+              Action: 'polly:StartSpeechSynthesisTask',
+              Effect: 'Allow',
+            }),
+          ]),
+        }),
+      });
+    });
+
+    test('state machine role has S3 output bucket permissions', () => {
+      template.hasResourceProperties('AWS::IAM::Policy', {
+        PolicyDocument: Match.objectLike({
+          Statement: Match.arrayWith([
+            Match.objectLike({
+              Action: Match.arrayWith(['s3:PutObject']),
+              Effect: 'Allow',
+            }),
+          ]),
+        }),
+      });
+    });
+  });
+
   describe('EventBridge Rule', () => {
     test('exists with correct event pattern for Object Created', () => {
       template.hasResourceProperties('AWS::Events::Rule', {
@@ -97,13 +151,14 @@ describe('CdkBaseStack', () => {
       });
     });
 
-    test('has a target configured', () => {
+    test('targets the Step Functions state machine', () => {
       template.hasResourceProperties('AWS::Events::Rule', {
-        Targets: [
-          {
-            Arn: {},
-          },
-        ],
+        Targets: Match.arrayWith([
+          Match.objectLike({
+            Arn: Match.anyValue(),
+            RoleArn: Match.anyValue(),
+          }),
+        ]),
       });
     });
   });

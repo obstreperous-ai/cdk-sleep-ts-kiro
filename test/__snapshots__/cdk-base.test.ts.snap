@@ -10,6 +10,14 @@ exports[`CdkBaseStack matches snapshot 1`] = `
     },
   },
   "Resources": {
+    "AudioPipelineLogGroup8E69EDEE": {
+      "DeletionPolicy": "Delete",
+      "Properties": {
+        "RetentionInDays": 7,
+      },
+      "Type": "AWS::Logs::LogGroup",
+      "UpdateReplacePolicy": "Delete",
+    },
     "AudioUploadRule24CD58D2": {
       "Properties": {
         "EventPattern": {
@@ -33,35 +41,19 @@ exports[`CdkBaseStack matches snapshot 1`] = `
         "Targets": [
           {
             "Arn": {
+              "Ref": "SleepAudioPipelineStateMachine741D1700",
+            },
+            "Id": "Target0",
+            "RoleArn": {
               "Fn::GetAtt": [
-                "PlaceholderProcessingFunctionEB687264",
+                "SleepAudioPipelineStateMachineEventsRole0816CD2D",
                 "Arn",
               ],
             },
-            "Id": "Target0",
           },
         ],
       },
       "Type": "AWS::Events::Rule",
-    },
-    "AudioUploadRuleAllowEventRuleTestStackPlaceholderProcessingFunctionA86E9FC5043A0D36": {
-      "Properties": {
-        "Action": "lambda:InvokeFunction",
-        "FunctionName": {
-          "Fn::GetAtt": [
-            "PlaceholderProcessingFunctionEB687264",
-            "Arn",
-          ],
-        },
-        "Principal": "events.amazonaws.com",
-        "SourceArn": {
-          "Fn::GetAtt": [
-            "AudioUploadRule24CD58D2",
-            "Arn",
-          ],
-        },
-      },
-      "Type": "AWS::Lambda::Permission",
     },
     "BucketNotificationsHandler050a0587b7544547bf325f094a3db8347ECC3691": {
       "DependsOn": [
@@ -224,56 +216,6 @@ def sort_filter_rules(json_obj):
       },
       "Type": "AWS::IAM::Role",
     },
-    "PlaceholderProcessingFunctionEB687264": {
-      "DependsOn": [
-        "PlaceholderProcessingFunctionServiceRole4382053E",
-      ],
-      "Properties": {
-        "Code": {
-          "ZipFile": "exports.handler = async () => { return { statusCode: 200 }; }",
-        },
-        "Handler": "index.handler",
-        "Role": {
-          "Fn::GetAtt": [
-            "PlaceholderProcessingFunctionServiceRole4382053E",
-            "Arn",
-          ],
-        },
-        "Runtime": "nodejs22.x",
-      },
-      "Type": "AWS::Lambda::Function",
-    },
-    "PlaceholderProcessingFunctionServiceRole4382053E": {
-      "Properties": {
-        "AssumeRolePolicyDocument": {
-          "Statement": [
-            {
-              "Action": "sts:AssumeRole",
-              "Effect": "Allow",
-              "Principal": {
-                "Service": "lambda.amazonaws.com",
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "ManagedPolicyArns": [
-          {
-            "Fn::Join": [
-              "",
-              [
-                "arn:",
-                {
-                  "Ref": "AWS::Partition",
-                },
-                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
-              ],
-            ],
-          },
-        ],
-      },
-      "Type": "AWS::IAM::Role",
-    },
     "SleepAudioInputBucket1923DAE4": {
       "DeletionPolicy": "Retain",
       "Properties": {
@@ -371,6 +313,172 @@ def sort_filter_rules(json_obj):
       },
       "Type": "AWS::S3::Bucket",
       "UpdateReplacePolicy": "Retain",
+    },
+    "SleepAudioPipelineStateMachine741D1700": {
+      "DeletionPolicy": "Delete",
+      "DependsOn": [
+        "SleepAudioPipelineStateMachineRoleDefaultPolicy65618CA7",
+        "SleepAudioPipelineStateMachineRole4AD4CDA0",
+      ],
+      "Properties": {
+        "DefinitionString": {
+          "Fn::Join": [
+            "",
+            [
+              "{"StartAt":"Synthesize Speech","States":{"Synthesize Speech":{"Next":"Done","Type":"Task","ResultPath":"$.pollyResult","Resource":"arn:",
+              {
+                "Ref": "AWS::Partition",
+              },
+              ":states:::aws-sdk:polly:startSpeechSynthesisTask","Parameters":{"OutputFormat":"mp3","OutputS3BucketName":"",
+              {
+                "Ref": "SleepAudioOutputBucketBD13D91D",
+              },
+              "","Text.$":"$.text","VoiceId":"Joanna"}},"Done":{"Type":"Succeed"}}}",
+            ],
+          ],
+        },
+        "LoggingConfiguration": {
+          "Destinations": [
+            {
+              "CloudWatchLogsLogGroup": {
+                "LogGroupArn": {
+                  "Fn::GetAtt": [
+                    "AudioPipelineLogGroup8E69EDEE",
+                    "Arn",
+                  ],
+                },
+              },
+            },
+          ],
+          "IncludeExecutionData": true,
+          "Level": "ALL",
+        },
+        "RoleArn": {
+          "Fn::GetAtt": [
+            "SleepAudioPipelineStateMachineRole4AD4CDA0",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::StepFunctions::StateMachine",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "SleepAudioPipelineStateMachineEventsRole0816CD2D": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "events.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "SleepAudioPipelineStateMachineEventsRoleDefaultPolicy0D7A95B4": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "states:StartExecution",
+              "Effect": "Allow",
+              "Resource": {
+                "Ref": "SleepAudioPipelineStateMachine741D1700",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "SleepAudioPipelineStateMachineEventsRoleDefaultPolicy0D7A95B4",
+        "Roles": [
+          {
+            "Ref": "SleepAudioPipelineStateMachineEventsRole0816CD2D",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "SleepAudioPipelineStateMachineRole4AD4CDA0": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "states.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "SleepAudioPipelineStateMachineRoleDefaultPolicy65618CA7": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "polly:StartSpeechSynthesisTask",
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+            {
+              "Action": [
+                "logs:CreateLogDelivery",
+                "logs:GetLogDelivery",
+                "logs:UpdateLogDelivery",
+                "logs:DeleteLogDelivery",
+                "logs:ListLogDeliveries",
+                "logs:PutResourcePolicy",
+                "logs:DescribeResourcePolicies",
+                "logs:DescribeLogGroups",
+              ],
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+            {
+              "Action": [
+                "s3:PutObject",
+                "s3:PutObjectLegalHold",
+                "s3:PutObjectRetention",
+                "s3:PutObjectTagging",
+                "s3:PutObjectVersionTagging",
+                "s3:Abort*",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Fn::GetAtt": [
+                        "SleepAudioOutputBucketBD13D91D",
+                        "Arn",
+                      ],
+                    },
+                    "/*",
+                  ],
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "SleepAudioPipelineStateMachineRoleDefaultPolicy65618CA7",
+        "Roles": [
+          {
+            "Ref": "SleepAudioPipelineStateMachineRole4AD4CDA0",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
     },
   },
   "Rules": {
