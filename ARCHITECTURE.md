@@ -10,8 +10,9 @@ The following resources are deployed in the CDK stack today:
 |----------|-------------|-------------|
 | **S3 Input Bucket** | `SleepAudioInputBucket` | Receives raw audio uploads. S3-managed encryption (AES256), versioning enabled, all public access blocked, EventBridge notifications enabled. |
 | **S3 Output Bucket** | `SleepAudioOutputBucket` | Stores processed audio output. S3-managed encryption (AES256), versioning enabled, all public access blocked. |
-| **EventBridge Rule** | `AudioUploadRule` | Triggers on `Object Created` events from the input bucket. |
-| **Placeholder Lambda** | `PlaceholderProcessingFunction` | Stub target for the EventBridge rule. Will be replaced with real processing logic in a future feature. |
+| **EventBridge Rule** | `AudioUploadRule` | Triggers on `Object Created` events from the input bucket. Targets the Step Functions state machine. |
+| **Step Functions State Machine** | `SleepAudioPipelineStateMachine` | Orchestrates the audio processing pipeline. Triggered by EventBridge on new audio uploads. CloudWatch logging enabled (level ALL). |
+| **Polly Task State** | `Synthesize Speech` | Invokes Amazon Polly `StartSpeechSynthesisTask` to synthesize speech (voice: Joanna, format: MP3). Output written to the S3 Output Bucket. |
 
 ### Implemented Architecture Diagram
 
@@ -19,14 +20,25 @@ The following resources are deployed in the CDK stack today:
 flowchart TD
     User([User / Client App]) --> S3Input[S3 Input Bucket]
     S3Input -->|Object Created event| EB[EventBridge Rule]
-    EB --> PlaceholderLambda[Placeholder Lambda]
-    S3Output[S3 Output Bucket]
-
-    style PlaceholderLambda stroke-dasharray: 5 5
-    style S3Output stroke-dasharray: 5 5
+    EB -->|Start Execution| SFN[Step Functions State Machine]
+    SFN --> PollyTask[Polly: StartSpeechSynthesisTask]
+    PollyTask --> S3Output[S3 Output Bucket]
 ```
 
-> The placeholder Lambda and the output bucket are provisioned but not yet connected by processing logic.
+## Orchestration Layer
+
+The **Step Functions state machine** (`SleepAudioPipelineStateMachine`) serves as the central orchestrator for the audio processing pipeline. It is triggered by EventBridge whenever a new audio file is uploaded to the S3 Input Bucket.
+
+**Current pipeline states:**
+
+1. **Synthesize Speech** - Invokes Amazon Polly `StartSpeechSynthesisTask` with configurable parameters (text from event input, voice: Joanna, format: MP3). The synthesized audio is written to the S3 Output Bucket.
+2. **Done** - Terminal success state.
+
+**Security:**
+- The state machine execution role follows least-privilege principles with permissions scoped to `polly:StartSpeechSynthesisTask` and `s3:PutObject` on the output bucket only.
+- CloudWatch logging is enabled at level ALL with execution data included for full observability.
+
+**Future states** (to be added in subsequent features): input validation, Bedrock audio enhancement, and metadata extraction.
 
 ---
 
