@@ -157,6 +157,109 @@ describe('CdkBaseStack', () => {
       );
       expect(hasOutputBucketRef).toBe(true);
     });
+
+    test('state machine definition includes a Write Metadata task state', () => {
+      template.hasResourceProperties('AWS::StepFunctions::StateMachine', {
+        DefinitionString: Match.objectLike({
+          'Fn::Join': Match.arrayWith([
+            '',
+            Match.arrayWith([
+              Match.stringLikeRegexp('.*Write Metadata.*'),
+            ]),
+          ]),
+        }),
+      });
+    });
+
+    test('state machine definition includes an Update Status task state', () => {
+      template.hasResourceProperties('AWS::StepFunctions::StateMachine', {
+        DefinitionString: Match.objectLike({
+          'Fn::Join': Match.arrayWith([
+            '',
+            Match.arrayWith([
+              Match.stringLikeRegexp('.*Update Status.*'),
+            ]),
+          ]),
+        }),
+      });
+    });
+
+    test('state machine role has dynamodb:PutItem permission', () => {
+      template.hasResourceProperties('AWS::IAM::Policy', {
+        PolicyDocument: Match.objectLike({
+          Statement: Match.arrayWith([
+            Match.objectLike({
+              Action: Match.arrayWith(['dynamodb:PutItem']),
+              Effect: 'Allow',
+            }),
+          ]),
+        }),
+      });
+    });
+
+    test('state machine role has dynamodb:UpdateItem permission', () => {
+      template.hasResourceProperties('AWS::IAM::Policy', {
+        PolicyDocument: Match.objectLike({
+          Statement: Match.arrayWith([
+            Match.objectLike({
+              Action: Match.arrayWith(['dynamodb:UpdateItem']),
+              Effect: 'Allow',
+            }),
+          ]),
+        }),
+      });
+    });
+  });
+
+  describe('DynamoDB Metadata Table', () => {
+    test('creates exactly 1 DynamoDB table', () => {
+      template.resourceCountIs('AWS::DynamoDB::Table', 1);
+    });
+
+    test('table has partition key audioId of type String', () => {
+      template.hasResourceProperties('AWS::DynamoDB::Table', {
+        KeySchema: [
+          {
+            AttributeName: 'audioId',
+            KeyType: 'HASH',
+          },
+        ],
+        AttributeDefinitions: [
+          {
+            AttributeName: 'audioId',
+            AttributeType: 'S',
+          },
+        ],
+      });
+    });
+
+    test('billing mode is PAY_PER_REQUEST', () => {
+      template.hasResourceProperties('AWS::DynamoDB::Table', {
+        BillingMode: 'PAY_PER_REQUEST',
+      });
+    });
+
+    test('server-side encryption is enabled', () => {
+      template.hasResourceProperties('AWS::DynamoDB::Table', {
+        SSESpecification: {
+          SSEEnabled: true,
+        },
+      });
+    });
+
+    test('point-in-time recovery is enabled', () => {
+      template.hasResourceProperties('AWS::DynamoDB::Table', {
+        PointInTimeRecoverySpecification: {
+          PointInTimeRecoveryEnabled: true,
+        },
+      });
+    });
+
+    test('deletion policy is Retain', () => {
+      const tables = template.findResources('AWS::DynamoDB::Table');
+      const tableLogicalId = Object.keys(tables)[0];
+      expect(tables[tableLogicalId].DeletionPolicy).toBe('Retain');
+    });
   });
 
   describe('EventBridge Rule', () => {
