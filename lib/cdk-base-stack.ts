@@ -53,6 +53,29 @@ export class CdkBaseStack extends cdk.Stack {
       resultPath: '$.dynamoResult',
     });
 
+    // Define the Mark Failed task for error handling
+    const markFailedTask = new tasks.DynamoUpdateItem(this, 'Mark Failed', {
+      table: metadataTable,
+      key: {
+        audioId: tasks.DynamoAttributeValue.fromString(sfn.JsonPath.stringAt('$.detail.object.key')),
+      },
+      updateExpression: 'SET #s = :status, #u = :updatedAt',
+      expressionAttributeNames: {
+        '#s': 'status',
+        '#u': 'updatedAt',
+      },
+      expressionAttributeValues: {
+        ':status': tasks.DynamoAttributeValue.fromString('FAILED'),
+        ':updatedAt': tasks.DynamoAttributeValue.fromString(sfn.JsonPath.stringAt('$$.State.EnteredTime')),
+      },
+      resultPath: '$.failResult',
+    });
+
+    markFailedTask.next(new sfn.Fail(this, 'Pipeline Failed', {
+      cause: 'Polly synthesis failed',
+      error: 'SynthesisError',
+    }));
+
     // Define the Polly task using CallAwsService (SDK integration)
     const pollySynthesizeTask = new tasks.CallAwsService(this, 'Synthesize Speech', {
       service: 'polly',
@@ -68,6 +91,11 @@ export class CdkBaseStack extends cdk.Stack {
       iamResources: ['*'],
       iamAction: 'polly:StartSpeechSynthesisTask',
       resultPath: '$.pollyResult',
+    });
+
+    // Add error handling: if Polly fails, mark metadata as FAILED
+    pollySynthesizeTask.addCatch(markFailedTask, {
+      resultPath: '$.errorInfo',
     });
 
     // Define the DynamoDB Update Status task
@@ -100,8 +128,8 @@ export class CdkBaseStack extends cdk.Stack {
       },
     });
 
-    // Grant the state machine read/write access to the metadata table
-    metadataTable.grantReadWriteData(stateMachine);
+    // Grant scoped DynamoDB permissions (PutItem, UpdateItem only) to the state machine role.
+    metadataTable.grant(stateMachine, 'dynamodb:PutItem', 'dynamodb:UpdateItem');
 
     // Allow the Polly service to write synthesized audio to the output bucket.
     // Polly writes to S3 using its own service credentials, not the caller's role.

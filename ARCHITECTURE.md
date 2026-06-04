@@ -24,10 +24,13 @@ flowchart TD
     EB -->|Start Execution| SFN[Step Functions State Machine]
     SFN --> WriteMetadata[DynamoDB: Write Metadata]
     WriteMetadata --> PollyTask[Polly: StartSpeechSynthesisTask]
-    PollyTask --> UpdateStatus[DynamoDB: Update Status]
+    PollyTask -->|Success| UpdateStatus[DynamoDB: Update Status]
+    PollyTask -->|Error| MarkFailed[DynamoDB: Mark Failed]
     UpdateStatus --> Done([Done])
+    MarkFailed --> PipelineFailed([Pipeline Failed])
     WriteMetadata --> DDB[(DynamoDB Metadata Table)]
     UpdateStatus --> DDB
+    MarkFailed --> DDB
     PollyTask --> S3Output[S3 Output Bucket]
 ```
 
@@ -38,9 +41,14 @@ The **Step Functions state machine** (`SleepAudioPipelineStateMachine`) serves a
 **Current pipeline states:**
 
 1. **Write Metadata** - Writes initial metadata record to DynamoDB (audioId, status=PROCESSING, inputBucket, inputKey, createdAt).
-2. **Synthesize Speech** - Invokes Amazon Polly `StartSpeechSynthesisTask` with configurable parameters (text from event input, voice: Joanna, format: MP3). The synthesized audio is written to the S3 Output Bucket.
+2. **Synthesize Speech** - Invokes Amazon Polly `StartSpeechSynthesisTask` with configurable parameters (text from event input, voice: Joanna, format: MP3). The synthesized audio is written to the S3 Output Bucket. On failure, catches the error and transitions to the Mark Failed state.
 3. **Update Status** - Updates the DynamoDB record status to COMPLETED with updatedAt timestamp.
 4. **Done** - Terminal success state.
+5. **Mark Failed** (error path) - If Polly synthesis fails, updates the DynamoDB record status to FAILED with updatedAt timestamp.
+6. **Pipeline Failed** (error path) - Terminal failure state reached after marking the metadata record as FAILED.
+
+**Error handling:**
+- The Polly task has a Catch clause that routes errors to the Mark Failed state, ensuring the DynamoDB metadata record accurately reflects pipeline failures instead of remaining stuck in PROCESSING status indefinitely.
 
 **Security:**
 - The state machine execution role follows least-privilege principles with permissions scoped to `polly:StartSpeechSynthesisTask` and `s3:PutObject` on the output bucket only.

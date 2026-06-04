@@ -184,27 +184,56 @@ describe('CdkBaseStack', () => {
       });
     });
 
-    test('state machine role has dynamodb:PutItem permission', () => {
+    test('state machine role has dynamodb:PutItem permission scoped to metadata table', () => {
       template.hasResourceProperties('AWS::IAM::Policy', {
         PolicyDocument: Match.objectLike({
           Statement: Match.arrayWith([
             Match.objectLike({
-              Action: Match.arrayWith(['dynamodb:PutItem']),
+              Action: 'dynamodb:PutItem',
               Effect: 'Allow',
+              Resource: Match.objectLike({
+                'Fn::Join': Match.arrayWith([
+                  '',
+                  Match.arrayWith([
+                    Match.objectLike({ Ref: Match.stringLikeRegexp('SleepAudioMetadataTable.*') }),
+                  ]),
+                ]),
+              }),
             }),
           ]),
         }),
       });
     });
 
-    test('state machine role has dynamodb:UpdateItem permission', () => {
+    test('state machine role has dynamodb:UpdateItem permission scoped to metadata table', () => {
       template.hasResourceProperties('AWS::IAM::Policy', {
         PolicyDocument: Match.objectLike({
           Statement: Match.arrayWith([
             Match.objectLike({
-              Action: Match.arrayWith(['dynamodb:UpdateItem']),
+              Action: 'dynamodb:UpdateItem',
               Effect: 'Allow',
+              Resource: Match.objectLike({
+                'Fn::Join': Match.arrayWith([
+                  '',
+                  Match.arrayWith([
+                    Match.objectLike({ Ref: Match.stringLikeRegexp('SleepAudioMetadataTable.*') }),
+                  ]),
+                ]),
+              }),
             }),
+          ]),
+        }),
+      });
+    });
+
+    test('state machine definition includes a Mark Failed state', () => {
+      template.hasResourceProperties('AWS::StepFunctions::StateMachine', {
+        DefinitionString: Match.objectLike({
+          'Fn::Join': Match.arrayWith([
+            '',
+            Match.arrayWith([
+              Match.stringLikeRegexp('.*Mark Failed.*'),
+            ]),
           ]),
         }),
       });
