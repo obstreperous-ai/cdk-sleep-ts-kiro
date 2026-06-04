@@ -87,6 +87,78 @@ describe('CdkBaseStack', () => {
     });
   });
 
+  describe('Step Functions State Machine', () => {
+    test('creates a Step Functions state machine', () => {
+      template.resourceCountIs('AWS::StepFunctions::StateMachine', 1);
+    });
+
+    test('state machine definition includes Polly StartSpeechSynthesisTask', () => {
+      template.hasResourceProperties('AWS::StepFunctions::StateMachine', {
+        DefinitionString: Match.objectLike({
+          'Fn::Join': Match.arrayWith([
+            '',
+            Match.arrayWith([
+              Match.stringLikeRegexp('.*Synthesize Speech.*Task.*'),
+            ]),
+          ]),
+        }),
+      });
+    });
+
+    test('state machine has CloudWatch logging enabled', () => {
+      template.hasResourceProperties('AWS::StepFunctions::StateMachine', {
+        LoggingConfiguration: Match.objectLike({
+          Level: 'ALL',
+          IncludeExecutionData: true,
+        }),
+      });
+    });
+
+    test('state machine role has Polly permissions', () => {
+      template.hasResourceProperties('AWS::IAM::Policy', {
+        PolicyDocument: Match.objectLike({
+          Statement: Match.arrayWith([
+            Match.objectLike({
+              Action: 'polly:StartSpeechSynthesisTask',
+              Effect: 'Allow',
+            }),
+          ]),
+        }),
+      });
+    });
+
+    test('state machine role has S3 output bucket permissions via bucket policy for Polly', () => {
+      template.hasResourceProperties('AWS::S3::BucketPolicy', {
+        PolicyDocument: Match.objectLike({
+          Statement: Match.arrayWith([
+            Match.objectLike({
+              Action: 's3:PutObject',
+              Effect: 'Allow',
+              Principal: Match.objectLike({
+                Service: 'polly.amazonaws.com',
+              }),
+            }),
+          ]),
+        }),
+      });
+    });
+
+    test('state machine definition references the output bucket', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+
+      // The DefinitionString uses Fn::Join; verify it contains a Ref to the output bucket
+      expect(definitionString).toHaveProperty('Fn::Join');
+      const joinParts = definitionString['Fn::Join'][1];
+      const hasOutputBucketRef = joinParts.some(
+        (part: any) => typeof part === 'object' && part !== null && 'Ref' in part &&
+          /SleepAudioOutputBucket/.test(part.Ref)
+      );
+      expect(hasOutputBucketRef).toBe(true);
+    });
+  });
+
   describe('EventBridge Rule', () => {
     test('exists with correct event pattern for Object Created', () => {
       template.hasResourceProperties('AWS::Events::Rule', {
@@ -97,13 +169,14 @@ describe('CdkBaseStack', () => {
       });
     });
 
-    test('has a target configured', () => {
+    test('targets the Step Functions state machine', () => {
       template.hasResourceProperties('AWS::Events::Rule', {
-        Targets: [
-          {
-            Arn: {},
-          },
-        ],
+        Targets: Match.arrayWith([
+          Match.objectLike({
+            Arn: Match.anyValue(),
+            RoleArn: Match.anyValue(),
+          }),
+        ]),
       });
     });
   });
