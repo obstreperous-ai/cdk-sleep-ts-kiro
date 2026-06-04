@@ -1,0 +1,7 @@
+{
+  "task_id": "task-dynamodb-metadata",
+  "task_description": "Add DynamoDB metadata table (SleepAudioMetadataTable) and extend Step Functions state machine with input/output handling (Write Metadata on start, Update Status after processing). Follow strict TDD workflow. Update ARCHITECTURE.md.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}
