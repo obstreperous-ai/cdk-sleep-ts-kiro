@@ -289,6 +289,32 @@ def sort_filter_rules(json_obj):
       },
       "Type": "AWS::IAM::Policy",
     },
+    "SleepAudioMetadataTableD77D3179": {
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "audioId",
+            "AttributeType": "S",
+          },
+        ],
+        "BillingMode": "PAY_PER_REQUEST",
+        "KeySchema": [
+          {
+            "AttributeName": "audioId",
+            "KeyType": "HASH",
+          },
+        ],
+        "PointInTimeRecoverySpecification": {
+          "PointInTimeRecoveryEnabled": true,
+        },
+        "SSESpecification": {
+          "SSEEnabled": true,
+        },
+      },
+      "Type": "AWS::DynamoDB::Table",
+      "UpdateReplacePolicy": "Retain",
+    },
     "SleepAudioOutputBucketBD13D91D": {
       "DeletionPolicy": "Retain",
       "Properties": {
@@ -359,7 +385,15 @@ def sort_filter_rules(json_obj):
           "Fn::Join": [
             "",
             [
-              "{"StartAt":"Synthesize Speech","States":{"Synthesize Speech":{"Next":"Done","Type":"Task","ResultPath":"$.pollyResult","Resource":"arn:",
+              "{"StartAt":"Write Metadata","States":{"Write Metadata":{"Next":"Synthesize Speech","Type":"Task","ResultPath":"$.dynamoResult","Resource":"arn:",
+              {
+                "Ref": "AWS::Partition",
+              },
+              ":states:::dynamodb:putItem","Parameters":{"Item":{"audioId":{"S.$":"$.detail.object.key"},"status":{"S":"PROCESSING"},"inputBucket":{"S.$":"$.detail.bucket.name"},"inputKey":{"S.$":"$.detail.object.key"},"createdAt":{"S.$":"$$.State.EnteredTime"}},"TableName":"",
+              {
+                "Ref": "SleepAudioMetadataTableD77D3179",
+              },
+              ""}},"Synthesize Speech":{"Next":"Update Status","Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.errorInfo","Next":"Mark Failed"}],"Type":"Task","ResultPath":"$.pollyResult","Resource":"arn:",
               {
                 "Ref": "AWS::Partition",
               },
@@ -367,7 +401,23 @@ def sort_filter_rules(json_obj):
               {
                 "Ref": "SleepAudioOutputBucketBD13D91D",
               },
-              "","OutputS3KeyPrefix.$":"$.detail.object.key","Text":"Placeholder text for sleep audio synthesis","VoiceId":"Joanna"}},"Done":{"Type":"Succeed"}}}",
+              "","OutputS3KeyPrefix.$":"$.detail.object.key","Text":"Placeholder text for sleep audio synthesis","VoiceId":"Joanna"}},"Update Status":{"Next":"Done","Type":"Task","ResultPath":"$.updateResult","Resource":"arn:",
+              {
+                "Ref": "AWS::Partition",
+              },
+              ":states:::dynamodb:updateItem","Parameters":{"Key":{"audioId":{"S.$":"$.detail.object.key"}},"TableName":"",
+              {
+                "Ref": "SleepAudioMetadataTableD77D3179",
+              },
+              "","ExpressionAttributeNames":{"#s":"status","#u":"updatedAt"},"ExpressionAttributeValues":{":status":{"S":"COMPLETED"},":updatedAt":{"S.$":"$$.State.EnteredTime"}},"UpdateExpression":"SET #s = :status, #u = :updatedAt"}},"Done":{"Type":"Succeed"},"Mark Failed":{"Next":"Pipeline Failed","Type":"Task","ResultPath":"$.failResult","Resource":"arn:",
+              {
+                "Ref": "AWS::Partition",
+              },
+              ":states:::dynamodb:updateItem","Parameters":{"Key":{"audioId":{"S.$":"$.detail.object.key"}},"TableName":"",
+              {
+                "Ref": "SleepAudioMetadataTableD77D3179",
+              },
+              "","ExpressionAttributeNames":{"#s":"status","#u":"updatedAt"},"ExpressionAttributeValues":{":status":{"S":"FAILED"},":updatedAt":{"S.$":"$$.State.EnteredTime"}},"UpdateExpression":"SET #s = :status, #u = :updatedAt"}},"Pipeline Failed":{"Type":"Fail","Error":"SynthesisError","Cause":"Polly synthesis failed"}}}",
             ],
           ],
         },
@@ -459,9 +509,63 @@ def sort_filter_rules(json_obj):
         "PolicyDocument": {
           "Statement": [
             {
+              "Action": "dynamodb:PutItem",
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":dynamodb:",
+                    {
+                      "Ref": "AWS::Region",
+                    },
+                    ":",
+                    {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":table/",
+                    {
+                      "Ref": "SleepAudioMetadataTableD77D3179",
+                    },
+                  ],
+                ],
+              },
+            },
+            {
               "Action": "polly:StartSpeechSynthesisTask",
               "Effect": "Allow",
               "Resource": "*",
+            },
+            {
+              "Action": "dynamodb:UpdateItem",
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":dynamodb:",
+                    {
+                      "Ref": "AWS::Region",
+                    },
+                    ":",
+                    {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":table/",
+                    {
+                      "Ref": "SleepAudioMetadataTableD77D3179",
+                    },
+                  ],
+                ],
+              },
             },
             {
               "Action": [
@@ -476,6 +580,21 @@ def sort_filter_rules(json_obj):
               ],
               "Effect": "Allow",
               "Resource": "*",
+            },
+            {
+              "Action": [
+                "dynamodb:PutItem",
+                "dynamodb:UpdateItem",
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "SleepAudioMetadataTableD77D3179",
+                    "Arn",
+                  ],
+                },
+              ],
             },
           ],
           "Version": "2012-10-17",

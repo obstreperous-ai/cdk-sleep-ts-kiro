@@ -1,0 +1,32 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Add DynamoDB metadata table and extend the Step Functions state machine with DynamoDB input/output handling, following strict TDD. Write failing tests first, then implement minimal code to pass them. Update snapshot and ARCHITECTURE.md.",
+  "status": "completed",
+  "steps": [
+    "STEP 1 - Write failing tests in test/cdk-base.test.ts. Add a new describe('DynamoDB Metadata Table') block with tests verifying: (a) exactly 1 DynamoDB table is created, (b) table has partition key 'audioId' of type String, (c) billing mode is PAY_PER_REQUEST, (d) server-side encryption is enabled (AWS_OWNED), (e) point-in-time recovery is enabled, (f) removal policy is RETAIN.",
+    "STEP 2 - Write failing tests for state machine DynamoDB integration. In the existing 'Step Functions State Machine' describe block, add tests: (a) state machine definition includes a DynamoDB PutItem task state (look for 'Write Metadata' or similar in the definition string), (b) state machine definition includes a DynamoDB UpdateItem task state for status update (look for 'Update Status' or similar), (c) state machine role has dynamodb:PutItem and dynamodb:UpdateItem permissions scoped to the metadata table.",
+    "STEP 3 - Run tests to confirm they FAIL (this validates TDD - tests written before implementation). Record the failing test output.",
+    "STEP 4 - Implement DynamoDB table in lib/cdk-base-stack.ts. Import aws_dynamodb. Create table with construct ID 'SleepAudioMetadataTable', partition key { name: 'audioId', type: dynamodb.AttributeType.STRING }, billingMode: PAY_PER_REQUEST, encryption: TABLE_DEFAULT (AWS owned), pointInTimeRecovery: true, removalPolicy: RETAIN.",
+    "STEP 5 - Extend the state machine definition in lib/cdk-base-stack.ts. Add a DynamoDB PutItem task (using tasks.DynamoPutItem) BEFORE the Polly task that writes an initial metadata record with audioId (from $.detail.object.key), status='PROCESSING', inputBucket (from $.detail.bucket.name), inputKey (from $.detail.object.key), createdAt (from context $$.State.EnteredTime). Add a DynamoDB UpdateItem task AFTER the Polly task that updates status to 'COMPLETED' and sets updatedAt. Chain: WriteMetadata -> Synthesize Speech -> UpdateStatus -> Done. Grant the state machine read/write access to the table using table.grantReadWriteData(stateMachine).",
+    "STEP 6 - Run tests again. All tests (including new ones) should pass. Fix any issues until green.",
+    "STEP 7 - Update the snapshot: run npx jest --updateSnapshot to regenerate test/__snapshots__/cdk-base.test.ts.snap.",
+    "STEP 8 - Run npx cdk synth to verify CloudFormation synthesis succeeds.",
+    "STEP 9 - Update ARCHITECTURE.md: (a) Add DynamoDB Metadata Table to the 'Currently Implemented' table with construct ID 'SleepAudioMetadataTable' and description of partition key, billing mode, encryption, PITR. (b) Add 'Write Metadata' and 'Update Status' task states to the implemented pipeline states description. (c) Update the 'Implemented Architecture Diagram' Mermaid diagram to show the DynamoDB table connected to the state machine with data flow arrows. (d) Add a brief section describing the metadata layer and state machine I/O handling."
+  ],
+  "acceptance_criteria": [
+    "All tests pass including new DynamoDB table tests and state machine integration tests",
+    "npx cdk synth succeeds without errors",
+    "DynamoDB table has correct key schema (audioId/String), PAY_PER_REQUEST billing, encryption enabled, PITR enabled",
+    "State machine definition chains: Write Metadata -> Synthesize Speech -> Update Status -> Done",
+    "State machine execution role has dynamodb:PutItem and dynamodb:UpdateItem permissions on the metadata table (not wildcard)",
+    "ARCHITECTURE.md is updated with new resources, updated Mermaid diagram, and metadata layer description",
+    "Snapshot is updated to reflect new resources"
+  ],
+  "verification": [
+    "npx jest (all tests pass)",
+    "npx cdk synth (synthesis succeeds)"
+  ],
+  "blocked_reason": null,
+  "findings": "All 26 tests pass (10 new). Used dynamodb.TableEncryption.AWS_MANAGED which maps to SSEEnabled:true in CloudFormation. The pointInTimeRecovery property shows a deprecation warning but functions correctly. grantReadWriteData provides dynamodb:PutItem and dynamodb:UpdateItem along with other read/write actions in an array, which the tests match using Match.arrayWith."
+}
