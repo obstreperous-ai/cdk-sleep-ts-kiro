@@ -265,17 +265,27 @@ describe('CdkBaseStack', () => {
       });
     });
 
-    test('state machine role has sns:Publish permission', () => {
+    test('state machine role has sns:Publish permission scoped to topic ARNs', () => {
       template.hasResourceProperties('AWS::IAM::Policy', {
         PolicyDocument: Match.objectLike({
           Statement: Match.arrayWith([
             Match.objectLike({
               Action: 'sns:Publish',
               Effect: 'Allow',
+              Resource: Match.anyValue(),
             }),
           ]),
         }),
       });
+      // Additionally verify the resource is not a wildcard
+      const policies = template.findResources('AWS::IAM::Policy');
+      const policyWithSns = Object.values(policies).find((p: any) =>
+        JSON.stringify(p.Properties?.PolicyDocument?.Statement).includes('sns:Publish')
+      );
+      const snsStatement = (policyWithSns as any).Properties.PolicyDocument.Statement.find(
+        (s: any) => s.Action === 'sns:Publish'
+      );
+      expect(snsStatement.Resource).not.toBe('*');
     });
   });
 

@@ -93,6 +93,8 @@ export class CdkBaseStack extends cdk.Stack {
         pipelineStatus: 'FAILED',
         audioId: sfn.JsonPath.stringAt('$.detail.object.key'),
         failedAt: sfn.JsonPath.stringAt('$$.State.EnteredTime'),
+        error: sfn.JsonPath.stringAt('$.errorInfo.Error'),
+        cause: sfn.JsonPath.stringAt('$.errorInfo.Cause'),
       }),
       resultPath: '$.notifyFailResult',
     });
@@ -153,10 +155,18 @@ export class CdkBaseStack extends cdk.Stack {
       resultPath: '$.notifyResult',
     });
 
+    const doneState = new sfn.Succeed(this, 'Done');
+
+    // Add Catch on notifySuccessTask so SNS errors don't fail the execution
+    // after DynamoDB already shows COMPLETED (best-effort notification)
+    notifySuccessTask.addCatch(doneState, {
+      resultPath: '$.notifyError',
+    });
+
     // Define the state machine
     const stateMachine = new sfn.StateMachine(this, 'SleepAudioPipelineStateMachine', {
       definitionBody: sfn.DefinitionBody.fromChainable(
-        writeMetadataTask.next(pollySynthesizeTask).next(updateStatusTask).next(notifySuccessTask).next(new sfn.Succeed(this, 'Done'))
+        writeMetadataTask.next(pollySynthesizeTask).next(updateStatusTask).next(notifySuccessTask).next(doneState)
       ),
       logs: {
         destination: logGroup,

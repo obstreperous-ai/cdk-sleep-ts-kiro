@@ -461,7 +461,7 @@ def sort_filter_rules(json_obj):
               {
                 "Ref": "SleepAudioMetadataTableD77D3179",
               },
-              "","ExpressionAttributeNames":{"#s":"status","#u":"updatedAt"},"ExpressionAttributeValues":{":status":{"S":"COMPLETED"},":updatedAt":{"S.$":"$$.State.EnteredTime"}},"UpdateExpression":"SET #s = :status, #u = :updatedAt"}},"Notify Success":{"Next":"Done","Type":"Task","ResultPath":"$.notifyResult","Resource":"arn:",
+              "","ExpressionAttributeNames":{"#s":"status","#u":"updatedAt"},"ExpressionAttributeValues":{":status":{"S":"COMPLETED"},":updatedAt":{"S.$":"$$.State.EnteredTime"}},"UpdateExpression":"SET #s = :status, #u = :updatedAt"}},"Notify Success":{"Next":"Done","Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.notifyError","Next":"Done"}],"Type":"Task","ResultPath":"$.notifyResult","Resource":"arn:",
               {
                 "Ref": "AWS::Partition",
               },
@@ -485,7 +485,7 @@ def sort_filter_rules(json_obj):
               {
                 "Ref": "PipelineFailedTopic64B61AAF",
               },
-              "","Message":{"pipelineStatus":"FAILED","audioId.$":"$.detail.object.key","failedAt.$":"$$.State.EnteredTime"}}},"Pipeline Failed":{"Type":"Fail","Error":"SynthesisError","Cause":"Polly synthesis failed"}}}",
+              "","Message":{"pipelineStatus":"FAILED","audioId.$":"$.detail.object.key","failedAt.$":"$$.State.EnteredTime","error.$":"$.errorInfo.Error","cause.$":"$.errorInfo.Cause"}}},"Pipeline Failed":{"Type":"Fail","Error":"SynthesisError","Cause":"Polly synthesis failed"}}}",
             ],
           ],
         },
