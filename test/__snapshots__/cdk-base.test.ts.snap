@@ -216,6 +216,58 @@ def sort_filter_rules(json_obj):
       },
       "Type": "AWS::IAM::Role",
     },
+    "PipelineCompletedTopicA74D8D79": {
+      "Properties": {
+        "KmsMasterKeyId": {
+          "Fn::Join": [
+            "",
+            [
+              "arn:",
+              {
+                "Ref": "AWS::Partition",
+              },
+              ":kms:",
+              {
+                "Ref": "AWS::Region",
+              },
+              ":",
+              {
+                "Ref": "AWS::AccountId",
+              },
+              ":alias/aws/sns",
+            ],
+          ],
+        },
+        "TopicName": "SleepAudioPipelineCompleted",
+      },
+      "Type": "AWS::SNS::Topic",
+    },
+    "PipelineFailedTopic64B61AAF": {
+      "Properties": {
+        "KmsMasterKeyId": {
+          "Fn::Join": [
+            "",
+            [
+              "arn:",
+              {
+                "Ref": "AWS::Partition",
+              },
+              ":kms:",
+              {
+                "Ref": "AWS::Region",
+              },
+              ":",
+              {
+                "Ref": "AWS::AccountId",
+              },
+              ":alias/aws/sns",
+            ],
+          ],
+        },
+        "TopicName": "SleepAudioPipelineFailed",
+      },
+      "Type": "AWS::SNS::Topic",
+    },
     "SleepAudioInputBucket1923DAE4": {
       "DeletionPolicy": "Retain",
       "Properties": {
@@ -401,7 +453,7 @@ def sort_filter_rules(json_obj):
               {
                 "Ref": "SleepAudioOutputBucketBD13D91D",
               },
-              "","OutputS3KeyPrefix.$":"$.detail.object.key","Text":"Placeholder text for sleep audio synthesis","VoiceId":"Joanna"}},"Update Status":{"Next":"Done","Type":"Task","ResultPath":"$.updateResult","Resource":"arn:",
+              "","OutputS3KeyPrefix.$":"$.detail.object.key","Text":"Placeholder text for sleep audio synthesis","VoiceId":"Joanna"}},"Update Status":{"Next":"Notify Success","Type":"Task","ResultPath":"$.updateResult","Resource":"arn:",
               {
                 "Ref": "AWS::Partition",
               },
@@ -409,7 +461,15 @@ def sort_filter_rules(json_obj):
               {
                 "Ref": "SleepAudioMetadataTableD77D3179",
               },
-              "","ExpressionAttributeNames":{"#s":"status","#u":"updatedAt"},"ExpressionAttributeValues":{":status":{"S":"COMPLETED"},":updatedAt":{"S.$":"$$.State.EnteredTime"}},"UpdateExpression":"SET #s = :status, #u = :updatedAt"}},"Done":{"Type":"Succeed"},"Mark Failed":{"Next":"Pipeline Failed","Type":"Task","ResultPath":"$.failResult","Resource":"arn:",
+              "","ExpressionAttributeNames":{"#s":"status","#u":"updatedAt"},"ExpressionAttributeValues":{":status":{"S":"COMPLETED"},":updatedAt":{"S.$":"$$.State.EnteredTime"}},"UpdateExpression":"SET #s = :status, #u = :updatedAt"}},"Notify Success":{"Next":"Done","Type":"Task","ResultPath":"$.notifyResult","Resource":"arn:",
+              {
+                "Ref": "AWS::Partition",
+              },
+              ":states:::sns:publish","Parameters":{"TopicArn":"",
+              {
+                "Ref": "PipelineCompletedTopicA74D8D79",
+              },
+              "","Message":{"pipelineStatus":"COMPLETED","audioId.$":"$.detail.object.key","completedAt.$":"$$.State.EnteredTime"}}},"Done":{"Type":"Succeed"},"Mark Failed":{"Next":"Notify Failure","Type":"Task","ResultPath":"$.failResult","Resource":"arn:",
               {
                 "Ref": "AWS::Partition",
               },
@@ -417,7 +477,15 @@ def sort_filter_rules(json_obj):
               {
                 "Ref": "SleepAudioMetadataTableD77D3179",
               },
-              "","ExpressionAttributeNames":{"#s":"status","#u":"updatedAt"},"ExpressionAttributeValues":{":status":{"S":"FAILED"},":updatedAt":{"S.$":"$$.State.EnteredTime"}},"UpdateExpression":"SET #s = :status, #u = :updatedAt"}},"Pipeline Failed":{"Type":"Fail","Error":"SynthesisError","Cause":"Polly synthesis failed"}}}",
+              "","ExpressionAttributeNames":{"#s":"status","#u":"updatedAt"},"ExpressionAttributeValues":{":status":{"S":"FAILED"},":updatedAt":{"S.$":"$$.State.EnteredTime"}},"UpdateExpression":"SET #s = :status, #u = :updatedAt"}},"Notify Failure":{"Next":"Pipeline Failed","Type":"Task","ResultPath":"$.notifyFailResult","Resource":"arn:",
+              {
+                "Ref": "AWS::Partition",
+              },
+              ":states:::sns:publish","Parameters":{"TopicArn":"",
+              {
+                "Ref": "PipelineFailedTopic64B61AAF",
+              },
+              "","Message":{"pipelineStatus":"FAILED","audioId.$":"$.detail.object.key","failedAt.$":"$$.State.EnteredTime"}}},"Pipeline Failed":{"Type":"Fail","Error":"SynthesisError","Cause":"Polly synthesis failed"}}}",
             ],
           ],
         },
@@ -565,6 +633,20 @@ def sort_filter_rules(json_obj):
                     },
                   ],
                 ],
+              },
+            },
+            {
+              "Action": "sns:Publish",
+              "Effect": "Allow",
+              "Resource": {
+                "Ref": "PipelineCompletedTopicA74D8D79",
+              },
+            },
+            {
+              "Action": "sns:Publish",
+              "Effect": "Allow",
+              "Resource": {
+                "Ref": "PipelineFailedTopic64B61AAF",
               },
             },
             {

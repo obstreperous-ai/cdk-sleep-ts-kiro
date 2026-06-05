@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "feat",
   "description": "Add SNS notification topics and integrate SNS Publish tasks into the Step Functions state machine for pipeline completion and failure notifications, following strict TDD. Write failing tests first, then implement the minimal code to pass them.",
-  "status": "pending",
+  "status": "in_progress",
   "steps": [
     "STEP 1 - Write failing tests in test/cdk-base.test.ts. Add a new describe('SNS Notification Topics') block with these tests: (a) 'creates exactly 2 SNS topics' using template.resourceCountIs('AWS::SNS::Topic', 2), (b) 'pipeline completed topic has KMS encryption' using template.hasResourceProperties('AWS::SNS::Topic', { KmsMasterKeyId: ... }) matching an alias/aws/sns or similar key, (c) 'pipeline failed topic has KMS encryption' similarly.",
     "STEP 2 - Write failing tests for SNS Publish in state machine. In the 'Step Functions State Machine' describe block, add: (a) 'state machine definition includes Notify Success SNS publish task' matching the definition string for a Notify Success or similar state name, (b) 'state machine definition includes Notify Failure SNS publish task' matching for a Notify Failure state name, (c) 'state machine role has sns:Publish permission' verifying an IAM policy statement with Action 'sns:Publish' and Effect 'Allow' scoped to the SNS topic ARNs.",
