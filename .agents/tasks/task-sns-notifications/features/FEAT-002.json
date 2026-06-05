@@ -1,0 +1,32 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Add SNS notification topics and integrate SNS Publish tasks into the Step Functions state machine for pipeline completion and failure notifications, following strict TDD. Write failing tests first, then implement the minimal code to pass them.",
+  "status": "pending",
+  "steps": [
+    "STEP 1 - Write failing tests in test/cdk-base.test.ts. Add a new describe('SNS Notification Topics') block with these tests: (a) 'creates exactly 2 SNS topics' using template.resourceCountIs('AWS::SNS::Topic', 2), (b) 'pipeline completed topic has KMS encryption' using template.hasResourceProperties('AWS::SNS::Topic', { KmsMasterKeyId: ... }) matching an alias/aws/sns or similar key, (c) 'pipeline failed topic has KMS encryption' similarly.",
+    "STEP 2 - Write failing tests for SNS Publish in state machine. In the 'Step Functions State Machine' describe block, add: (a) 'state machine definition includes Notify Success SNS publish task' matching the definition string for a Notify Success or similar state name, (b) 'state machine definition includes Notify Failure SNS publish task' matching for a Notify Failure state name, (c) 'state machine role has sns:Publish permission' verifying an IAM policy statement with Action 'sns:Publish' and Effect 'Allow' scoped to the SNS topic ARNs.",
+    "STEP 3 - Confirm the new tests fail by running `npx jest` (they should fail because no SNS topics or publish tasks exist yet).",
+    "STEP 4 - Implement the SNS topics in lib/cdk-base-stack.ts. Import `* as sns from 'aws-cdk-lib/aws-sns'`. Create two topics: (a) `new sns.Topic(this, 'PipelineCompletedTopic', { topicName: 'SleepAudioPipelineCompleted', masterKey: ... })` using the AWS-managed SNS key via `cdk.aws_kms.Alias.fromAliasName(this, 'SnsKey', 'alias/aws/sns')` or similar approach, (b) `new sns.Topic(this, 'PipelineFailedTopic', { topicName: 'SleepAudioPipelineFailed', masterKey: ... })` with the same encryption.",
+    "STEP 5 - Implement the SNS Publish tasks in the state machine workflow. (a) Create a 'Notify Success' task using `new tasks.SnsPublish(this, 'Notify Success', { topic: completedTopic, message: sfn.TaskInput.fromObject({ ... }) })` placed AFTER the Update Status task and BEFORE the Done succeed state. (b) Create a 'Notify Failure' task using `new tasks.SnsPublish(this, 'Notify Failure', { topic: failedTopic, message: sfn.TaskInput.fromObject({ ... }) })` placed in the error path AFTER the Mark Failed DynamoUpdateItem and BEFORE the Pipeline Failed fail state. (c) Update the state machine definition chain: writeMetadataTask.next(pollySynthesizeTask).next(updateStatusTask).next(notifySuccessTask).next(Done). (d) For the error path: markFailedTask.next(notifyFailureTask).next(Pipeline Failed).",
+    "STEP 6 - Grant SNS publish permissions. The CDK L2 SnsPublish task should automatically grant permissions, but verify. If needed, explicitly call `completedTopic.grantPublish(stateMachine)` and `failedTopic.grantPublish(stateMachine)`.",
+    "STEP 7 - Run `npx jest --updateSnapshot` to confirm all tests pass including the new ones. The snapshot will be updated automatically.",
+    "STEP 8 - Run `npx cdk synth` to confirm synthesis succeeds."
+  ],
+  "acceptance_criteria": [
+    "Two AWS::SNS::Topic resources exist in the synthesized template",
+    "Both SNS topics have KmsMasterKeyId set for encryption",
+    "State machine definition includes a 'Notify Success' state that publishes to the completed topic",
+    "State machine definition includes a 'Notify Failure' state that publishes to the failed topic",
+    "IAM policy grants sns:Publish permission to the state machine role scoped to the topic ARNs",
+    "All existing tests continue to pass",
+    "All new tests pass",
+    "cdk synth succeeds cleanly"
+  ],
+  "verification": [
+    "Run `npx jest --updateSnapshot` - all tests pass",
+    "Run `npx cdk synth` - synthesis succeeds without errors"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

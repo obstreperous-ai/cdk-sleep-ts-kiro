@@ -1,0 +1,7 @@
+{
+  "task_id": "task-sns-notifications",
+  "task_description": "Add SNS notifications for pipeline completion and errors. Create two encrypted SNS topics (PipelineCompleted, PipelineFailed), integrate SNS Publish tasks into the Step Functions state machine success and error paths, ensure IAM permissions follow least-privilege, and update ARCHITECTURE.md.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
+  "blocked_reason": null
+}
