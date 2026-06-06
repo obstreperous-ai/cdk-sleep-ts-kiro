@@ -29,7 +29,8 @@ flowchart TD
     WriteMetadata --> PollyTask[Polly: StartSpeechSynthesisTask]
     PollyTask -->|Success| ProcessAudio[Lambda: Process Audio]
     PollyTask -->|Error| MarkFailed[DynamoDB: Mark Failed]
-    ProcessAudio --> UpdateStatus[DynamoDB: Update Status]
+    ProcessAudio -->|Success| UpdateStatus[DynamoDB: Update Status]
+    ProcessAudio -->|Error| MarkFailed
     UpdateStatus --> NotifySuccess[SNS: Notify Success]
     NotifySuccess --> Done([Done])
     MarkFailed --> NotifyFailure[SNS: Notify Failure]
@@ -62,7 +63,7 @@ The **Step Functions state machine** (`SleepAudioPipelineStateMachine`) serves a
 9. **Pipeline Failed** (error path) - Terminal failure state reached after marking the metadata record as FAILED.
 
 **Error handling:**
-- The Polly task has a Catch clause that routes errors to the Mark Failed state, ensuring the DynamoDB metadata record accurately reflects pipeline failures instead of remaining stuck in PROCESSING status indefinitely.
+- The Polly task has a Catch clause that routes errors to the Mark Failed state, ensuring the DynamoDB metadata record accurately reflects pipeline failures instead of remaining stuck in PROCESSING status indefinitely. The Process Audio step also has a Catch clause that routes errors to the Mark Failed state, so failures during audio processing are handled consistently.
 
 **Security:**
 - The state machine execution role follows least-privilege principles with permissions scoped to `polly:StartSpeechSynthesisTask`, `s3:PutObject` on the output bucket, `lambda:InvokeFunction` on the SleepAudioProcessor, and DynamoDB operations on the metadata table only.
