@@ -13,6 +13,7 @@ The following resources are deployed in the CDK stack today:
 | **EventBridge Rule** | `AudioUploadRule` | Triggers on `Object Created` events from the input bucket. Targets the Step Functions state machine. |
 | **Step Functions State Machine** | `SleepAudioPipelineStateMachine` | Orchestrates the audio processing pipeline. Triggered by EventBridge on new audio uploads. CloudWatch logging enabled (level ALL). |
 | **Polly Task State** | `Synthesize Speech` | Invokes Amazon Polly `StartSpeechSynthesisTask` to synthesize speech (voice: Joanna, format: MP3). Output written to the S3 Output Bucket. |
+| **Lambda Function** | `SleepAudioProcessor` | Audio processing placeholder (Node.js 22.x). Receives Polly results, logs input, and returns processing status. Has read/write access to the DynamoDB Metadata Table. Future use: audio validation, metadata enrichment, format transformations. |
 | **DynamoDB Metadata Table** | `SleepAudioMetadataTable` | Stores audio pipeline metadata. Partition key: `audioId` (String). On-demand billing, AWS-managed encryption, point-in-time recovery enabled. |
 | **SNS Completed Topic** | `PipelineCompletedTopic` | Publishes notification on successful pipeline completion. KMS-encrypted (aws/sns managed key). |
 | **SNS Failed Topic** | `PipelineFailedTopic` | Publishes notification on pipeline failure. KMS-encrypted (aws/sns managed key). |
@@ -26,8 +27,9 @@ flowchart TD
     EB -->|Start Execution| SFN[Step Functions State Machine]
     SFN --> WriteMetadata[DynamoDB: Write Metadata]
     WriteMetadata --> PollyTask[Polly: StartSpeechSynthesisTask]
-    PollyTask -->|Success| UpdateStatus[DynamoDB: Update Status]
+    PollyTask -->|Success| ProcessAudio[Lambda: Process Audio]
     PollyTask -->|Error| MarkFailed[DynamoDB: Mark Failed]
+    ProcessAudio --> UpdateStatus[DynamoDB: Update Status]
     UpdateStatus --> NotifySuccess[SNS: Notify Success]
     NotifySuccess --> Done([Done])
     MarkFailed --> NotifyFailure[SNS: Notify Failure]
@@ -35,6 +37,7 @@ flowchart TD
     WriteMetadata --> DDB[(DynamoDB Metadata Table)]
     UpdateStatus --> DDB
     MarkFailed --> DDB
+    ProcessAudio --> DDB
     NotifySuccess --> SNSCompleted[SNS Completed Topic]
     NotifyFailure --> SNSFailed[SNS Failed Topic]
     SNSCompleted --> Subscribers([Subscribers])
@@ -50,18 +53,20 @@ The **Step Functions state machine** (`SleepAudioPipelineStateMachine`) serves a
 
 1. **Write Metadata** - Writes initial metadata record to DynamoDB (audioId, status=PROCESSING, inputBucket, inputKey, createdAt).
 2. **Synthesize Speech** - Invokes Amazon Polly `StartSpeechSynthesisTask` with configurable parameters (text from event input, voice: Joanna, format: MP3). The synthesized audio is written to the S3 Output Bucket. On failure, catches the error and transitions to the Mark Failed state.
-3. **Update Status** - Updates the DynamoDB record status to COMPLETED with updatedAt timestamp.
-4. **Notify Success** - Publishes a success notification to the SNS Completed topic (includes audioId and completion timestamp).
-5. **Done** - Terminal success state.
-6. **Mark Failed** (error path) - If Polly synthesis fails, updates the DynamoDB record status to FAILED with updatedAt timestamp.
-7. **Notify Failure** (error path) - Publishes a failure notification to the SNS Failed topic (includes audioId and failure timestamp).
-8. **Pipeline Failed** (error path) - Terminal failure state reached after marking the metadata record as FAILED.
+3. **Process Audio** - Invokes the `SleepAudioProcessor` Lambda function via `LambdaInvoke`. Currently a placeholder that logs input and returns a success response. Future use includes validating Polly output, enriching metadata with audio duration/format details, and performing additional transformations. Has read/write access to the DynamoDB Metadata Table.
+4. **Update Status** - Updates the DynamoDB record status to COMPLETED with updatedAt timestamp.
+5. **Notify Success** - Publishes a success notification to the SNS Completed topic (includes audioId and completion timestamp).
+6. **Done** - Terminal success state.
+7. **Mark Failed** (error path) - If Polly synthesis fails, updates the DynamoDB record status to FAILED with updatedAt timestamp.
+8. **Notify Failure** (error path) - Publishes a failure notification to the SNS Failed topic (includes audioId and failure timestamp).
+9. **Pipeline Failed** (error path) - Terminal failure state reached after marking the metadata record as FAILED.
 
 **Error handling:**
 - The Polly task has a Catch clause that routes errors to the Mark Failed state, ensuring the DynamoDB metadata record accurately reflects pipeline failures instead of remaining stuck in PROCESSING status indefinitely.
 
 **Security:**
-- The state machine execution role follows least-privilege principles with permissions scoped to `polly:StartSpeechSynthesisTask` and `s3:PutObject` on the output bucket only.
+- The state machine execution role follows least-privilege principles with permissions scoped to `polly:StartSpeechSynthesisTask`, `s3:PutObject` on the output bucket, `lambda:InvokeFunction` on the SleepAudioProcessor, and DynamoDB operations on the metadata table only.
+- The Lambda execution role has read/write access to the DynamoDB Metadata Table and CloudWatch Logs permissions for observability.
 - CloudWatch logging is enabled at level ALL with execution data included for full observability.
 
 **Future states** (to be added in subsequent features): input validation, Bedrock audio enhancement, and metadata extraction.

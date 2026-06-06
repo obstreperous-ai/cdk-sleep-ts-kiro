@@ -9,6 +9,7 @@ import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as kms from 'aws-cdk-lib/aws-kms';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { Construct } from 'constructs';
 
 export class CdkBaseStack extends cdk.Stack {
@@ -126,6 +127,25 @@ export class CdkBaseStack extends cdk.Stack {
       resultPath: '$.errorInfo',
     });
 
+    // Lambda function for audio processing (placeholder for future logic)
+    const audioProcessorFunction = new lambda.Function(this, 'SleepAudioProcessor', {
+      runtime: lambda.Runtime.NODEJS_22_X,
+      handler: 'index.handler',
+      code: lambda.Code.fromAsset('lambda/audio-processor'),
+      environment: {
+        TABLE_NAME: metadataTable.tableName,
+      },
+    });
+
+    // Grant the Lambda read/write access to the DynamoDB metadata table
+    metadataTable.grantReadWriteData(audioProcessorFunction);
+
+    // Define the Process Audio task using LambdaInvoke
+    const processAudioTask = new tasks.LambdaInvoke(this, 'Process Audio', {
+      lambdaFunction: audioProcessorFunction,
+      resultPath: '$.processAudioResult',
+    });
+
     // Define the DynamoDB Update Status task
     const updateStatusTask = new tasks.DynamoUpdateItem(this, 'Update Status', {
       table: metadataTable,
@@ -166,7 +186,7 @@ export class CdkBaseStack extends cdk.Stack {
     // Define the state machine
     const stateMachine = new sfn.StateMachine(this, 'SleepAudioPipelineStateMachine', {
       definitionBody: sfn.DefinitionBody.fromChainable(
-        writeMetadataTask.next(pollySynthesizeTask).next(updateStatusTask).next(notifySuccessTask).next(doneState)
+        writeMetadataTask.next(pollySynthesizeTask).next(processAudioTask).next(updateStatusTask).next(notifySuccessTask).next(doneState)
       ),
       logs: {
         destination: logGroup,

@@ -1,0 +1,42 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Create a Lambda function skeleton (SleepAudioProcessor) integrated into the Step Functions state machine with TDD approach, plus update ARCHITECTURE.md",
+  "status": "in_progress",
+  "steps": [
+    "Create a new git branch: feat/lambda-skeleton",
+    "Create the Lambda handler directory and file: lambda/audio-processor/index.ts - a minimal Node.js handler that receives input from the state machine (audioId, S3 event details), logs the input, optionally updates DynamoDB metadata with enriched data, and returns a response. Include basic error handling (try/catch with structured error response).",
+    "Add new failing tests in test/cdk-base.test.ts under a new describe block 'Lambda Function - SleepAudioProcessor'. Tests should verify: (a) a Lambda function resource exists with Node.js runtime, (b) the handler is correctly configured, (c) environment variables include the DynamoDB table name, (d) the Lambda has CloudWatch Logs permissions via its execution role, (e) the Lambda has DynamoDB read/write permissions scoped to the metadata table.",
+    "Add a test verifying the state machine definition includes a 'Process Audio' (or similar) LambdaInvoke task state that invokes the Lambda function.",
+    "Add a test verifying the state machine role has lambda:InvokeFunction permission scoped to the Lambda function ARN.",
+    "Implement the Lambda construct in lib/cdk-base-stack.ts using aws_lambda.Function L2 construct with: Node.js 22.x runtime, handler from the lambda/audio-processor directory, environment variable for TABLE_NAME referencing the DynamoDB metadata table.",
+    "Integrate the Lambda into the Step Functions state machine using tasks.LambdaInvoke. Place the 'Process Audio' task after 'Synthesize Speech' and before 'Update Status' in the happy path. Pass relevant input (audioId, pollyResult) via payload. Configure resultPath to store Lambda output.",
+    "Grant the state machine permission to invoke the Lambda (CDK handles this via the LambdaInvoke task construct). Grant the Lambda read/write access to the DynamoDB metadata table using metadataTable.grantReadWriteData().",
+    "Update the snapshot by running tests with -u flag.",
+    "Update ARCHITECTURE.md: (a) Add the Lambda function to the 'Currently Implemented' table. (b) Update the 'Implemented Architecture Diagram' Mermaid diagram to show the Lambda between Polly and Update Status. (c) Add a new section or update the Orchestration Layer section describing the Lambda's role (audio processing placeholder, receives Polly results, can enrich metadata). (d) Update the pipeline states list.",
+    "Ensure all tests pass with NODE_OPTIONS='' npx jest --no-coverage and NODE_OPTIONS='' npx cdk synth succeeds.",
+    "Commit with conventional commit message: feat: add Lambda function skeleton with Step Functions integration"
+  ],
+  "acceptance_criteria": [
+    "A Lambda function resource (AWS::Lambda::Function) exists in the synthesized template with Node.js runtime",
+    "The Lambda has an environment variable TABLE_NAME pointing to the DynamoDB metadata table",
+    "The Lambda execution role has DynamoDB permissions (read/write) scoped to the metadata table",
+    "The state machine definition includes a LambdaInvoke task state (Process Audio or similar name)",
+    "The state machine role has lambda:InvokeFunction permission scoped to the Lambda ARN",
+    "The Lambda handler file exists at lambda/audio-processor/index.ts with basic input logging and error handling",
+    "The state machine flow is: Write Metadata -> Synthesize Speech -> Process Audio -> Update Status -> Notify Success",
+    "All existing tests continue to pass (no regression)",
+    "New tests verify the Lambda construct, its permissions, and its integration in the state machine",
+    "ARCHITECTURE.md is updated with the Lambda function in the diagram and description",
+    "NODE_OPTIONS='' npx cdk synth succeeds cleanly",
+    "Snapshot test is updated to reflect the new resources"
+  ],
+  "verification": [
+    "NODE_OPTIONS='' npx jest --no-coverage (all tests pass including new Lambda tests)",
+    "NODE_OPTIONS='' npx cdk synth (succeeds without errors)",
+    "Verify lambda/audio-processor/index.ts exists and contains a valid handler function",
+    "Verify ARCHITECTURE.md contains 'Process Audio' or 'SleepAudioProcessor' in both diagram and text"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

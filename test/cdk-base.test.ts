@@ -383,6 +383,90 @@ describe('CdkBaseStack', () => {
     });
   });
 
+  describe('Lambda Function - SleepAudioProcessor', () => {
+    test('creates a Lambda function with Node.js 22.x runtime', () => {
+      template.hasResourceProperties('AWS::Lambda::Function', {
+        Runtime: 'nodejs22.x',
+      });
+    });
+
+    test('Lambda handler is configured correctly', () => {
+      template.hasResourceProperties('AWS::Lambda::Function', {
+        Handler: 'index.handler',
+      });
+    });
+
+    test('Lambda has TABLE_NAME environment variable referencing the metadata table', () => {
+      template.hasResourceProperties('AWS::Lambda::Function', {
+        Environment: {
+          Variables: {
+            TABLE_NAME: {
+              Ref: Match.stringLikeRegexp('SleepAudioMetadataTable'),
+            },
+          },
+        },
+      });
+    });
+
+    test('Lambda execution role has DynamoDB read/write permissions scoped to metadata table', () => {
+      template.hasResourceProperties('AWS::IAM::Policy', {
+        PolicyDocument: Match.objectLike({
+          Statement: Match.arrayWith([
+            Match.objectLike({
+              Action: Match.arrayWith([
+                'dynamodb:BatchGetItem',
+                'dynamodb:Query',
+                'dynamodb:GetItem',
+                'dynamodb:Scan',
+                'dynamodb:ConditionCheckItem',
+                'dynamodb:BatchWriteItem',
+                'dynamodb:PutItem',
+                'dynamodb:UpdateItem',
+                'dynamodb:DeleteItem',
+                'dynamodb:DescribeTable',
+              ]),
+              Effect: 'Allow',
+              Resource: Match.arrayWith([
+                Match.objectLike({
+                  'Fn::GetAtt': Match.arrayWith([
+                    Match.stringLikeRegexp('SleepAudioMetadataTable'),
+                  ]),
+                }),
+              ]),
+            }),
+          ]),
+        }),
+      });
+    });
+
+    test('state machine definition includes a Process Audio LambdaInvoke task', () => {
+      template.hasResourceProperties('AWS::StepFunctions::StateMachine', {
+        DefinitionString: Match.objectLike({
+          'Fn::Join': Match.arrayWith([
+            '',
+            Match.arrayWith([
+              Match.stringLikeRegexp('.*Process Audio.*'),
+            ]),
+          ]),
+        }),
+      });
+    });
+
+    test('state machine role has lambda:InvokeFunction permission scoped to Lambda ARN', () => {
+      template.hasResourceProperties('AWS::IAM::Policy', {
+        PolicyDocument: Match.objectLike({
+          Statement: Match.arrayWith([
+            Match.objectLike({
+              Action: 'lambda:InvokeFunction',
+              Effect: 'Allow',
+              Resource: Match.anyValue(),
+            }),
+          ]),
+        }),
+      });
+    });
+  });
+
   test('matches snapshot', () => {
     expect(template.toJSON()).toMatchSnapshot();
   });
