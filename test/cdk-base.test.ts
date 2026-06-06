@@ -459,7 +459,13 @@ describe('CdkBaseStack', () => {
             Match.objectLike({
               Action: 'lambda:InvokeFunction',
               Effect: 'Allow',
-              Resource: Match.anyValue(),
+              Resource: Match.arrayWith([
+                Match.objectLike({
+                  'Fn::GetAtt': Match.arrayWith([
+                    Match.stringLikeRegexp('SleepAudioProcessor'),
+                  ]),
+                }),
+              ]),
             }),
           ]),
         }),

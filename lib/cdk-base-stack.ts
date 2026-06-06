@@ -146,6 +146,11 @@ export class CdkBaseStack extends cdk.Stack {
       resultPath: '$.processAudioResult',
     });
 
+    // Add error handling: if Lambda fails, mark metadata as FAILED
+    processAudioTask.addCatch(markFailedTask, {
+      resultPath: '$.errorInfo',
+    });
+
     // Define the DynamoDB Update Status task
     const updateStatusTask = new tasks.DynamoUpdateItem(this, 'Update Status', {
       table: metadataTable,
