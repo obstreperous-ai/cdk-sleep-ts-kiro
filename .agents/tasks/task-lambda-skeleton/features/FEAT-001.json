@@ -38,5 +38,5 @@
     "Verify ARCHITECTURE.md contains 'Process Audio' or 'SleepAudioProcessor' in both diagram and text"
   ],
   "blocked_reason": null,
-  "findings": "All 39 tests pass (6 new Lambda tests). CDK synth succeeds. grantReadWriteData() in CDK v2.252.0 grants 10 actions (no GetRecords/GetShardIterator). LambdaInvoke automatically grants the state machine role lambda:InvokeFunction permission."
+  "findings": "All 39 tests pass (6 new Lambda tests). CDK synth succeeds. grantReadWriteData() in CDK v2.252.0 grants 10 actions (no GetRecords/GetShardIterator). LambdaInvoke automatically grants the state machine role lambda:InvokeFunction permission. Review fixes applied: (1) added .addCatch(markFailedTask) to processAudioTask for error handling parity with pollySynthesizeTask, (2) strengthened IAM test to assert Resource contains Fn::GetAtt referencing SleepAudioProcessor."
 }
