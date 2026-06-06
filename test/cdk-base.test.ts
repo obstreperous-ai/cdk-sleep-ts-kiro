@@ -238,6 +238,55 @@ describe('CdkBaseStack', () => {
         }),
       });
     });
+
+    test('state machine definition includes Notify Success SNS publish task', () => {
+      template.hasResourceProperties('AWS::StepFunctions::StateMachine', {
+        DefinitionString: Match.objectLike({
+          'Fn::Join': Match.arrayWith([
+            '',
+            Match.arrayWith([
+              Match.stringLikeRegexp('.*Notify Success.*'),
+            ]),
+          ]),
+        }),
+      });
+    });
+
+    test('state machine definition includes Notify Failure SNS publish task', () => {
+      template.hasResourceProperties('AWS::StepFunctions::StateMachine', {
+        DefinitionString: Match.objectLike({
+          'Fn::Join': Match.arrayWith([
+            '',
+            Match.arrayWith([
+              Match.stringLikeRegexp('.*Notify Failure.*'),
+            ]),
+          ]),
+        }),
+      });
+    });
+
+    test('state machine role has sns:Publish permission scoped to topic ARNs', () => {
+      template.hasResourceProperties('AWS::IAM::Policy', {
+        PolicyDocument: Match.objectLike({
+          Statement: Match.arrayWith([
+            Match.objectLike({
+              Action: 'sns:Publish',
+              Effect: 'Allow',
+              Resource: Match.anyValue(),
+            }),
+          ]),
+        }),
+      });
+      // Additionally verify the resource is not a wildcard
+      const policies = template.findResources('AWS::IAM::Policy');
+      const policyWithSns = Object.values(policies).find((p: any) =>
+        JSON.stringify(p.Properties?.PolicyDocument?.Statement).includes('sns:Publish')
+      );
+      const snsStatement = (policyWithSns as any).Properties.PolicyDocument.Statement.find(
+        (s: any) => s.Action === 'sns:Publish'
+      );
+      expect(snsStatement.Resource).not.toBe('*');
+    });
   });
 
   describe('DynamoDB Metadata Table', () => {
@@ -288,6 +337,27 @@ describe('CdkBaseStack', () => {
       const tables = template.findResources('AWS::DynamoDB::Table');
       const tableLogicalId = Object.keys(tables)[0];
       expect(tables[tableLogicalId].DeletionPolicy).toBe('Retain');
+    });
+  });
+
+  describe('SNS Notification Topics', () => {
+    test('creates exactly 2 SNS topics', () => {
+      template.resourceCountIs('AWS::SNS::Topic', 2);
+    });
+
+    test('pipeline completed topic has KMS encryption', () => {
+      template.hasResourceProperties('AWS::SNS::Topic', {
+        KmsMasterKeyId: Match.anyValue(),
+      });
+    });
+
+    test('pipeline failed topic has KMS encryption', () => {
+      const topics = template.findResources('AWS::SNS::Topic', {
+        Properties: {
+          KmsMasterKeyId: Match.anyValue(),
+        },
+      });
+      expect(Object.keys(topics).length).toBe(2);
     });
   });
 

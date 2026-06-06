@@ -1,0 +1,27 @@
+{
+  "id": "FEAT-003",
+  "type": "docs",
+  "description": "Update ARCHITECTURE.md to document the SNS notification topics, notification flows, and their integration with the state machine error handling paths.",
+  "status": "completed",
+  "steps": [
+    "STEP 1 - Update the 'Currently Implemented' table in ARCHITECTURE.md to add rows for the two new SNS topics: PipelineCompletedTopic and PipelineFailedTopic, noting they are KMS-encrypted and used for pipeline success/failure notifications.",
+    "STEP 2 - Update the 'Implemented Architecture Diagram' Mermaid flowchart to show: (a) A 'Notify Success' node between UpdateStatus and Done, with an arrow to an 'SNS Completed Topic' node. (b) A 'Notify Failure' node between MarkFailed and PipelineFailed, with an arrow to an 'SNS Failed Topic' node. (c) Both SNS topic nodes should show they connect to Subscribers.",
+    "STEP 3 - Update the 'Orchestration Layer' section's 'Current pipeline states' list to include the new Notify Success and Notify Failure states, describing what they do.",
+    "STEP 4 - Add a brief 'Notification Layer' section (after the Orchestration Layer section) describing the two SNS topics, their encryption configuration, and their role in the pipeline (success notifications for downstream consumers, failure notifications for alerting/monitoring).",
+    "STEP 5 - Verify the document is internally consistent - the Mermaid diagram matches the text description, and the table lists all implemented resources."
+  ],
+  "acceptance_criteria": [
+    "ARCHITECTURE.md Currently Implemented table includes both SNS topics",
+    "Mermaid diagram shows Notify Success and Notify Failure nodes with connections to SNS topics",
+    "Orchestration Layer section lists the new notification states",
+    "A Notification Layer section explains the SNS integration",
+    "Document is internally consistent - no contradictions between diagram, table, and text"
+  ],
+  "verification": [
+    "Read ARCHITECTURE.md and confirm it documents the new SNS resources and notification flows",
+    "Run `npx jest --updateSnapshot` to confirm tests still pass after doc changes",
+    "Run `npx cdk synth` to confirm synthesis still succeeds"
+  ],
+  "blocked_reason": null,
+  "findings": "All 33 tests pass. cdk synth succeeds. ARCHITECTURE.md updated with SNS topics in the Currently Implemented table, updated Mermaid diagram showing Notify Success and Notify Failure nodes, renumbered pipeline states list, and new Notification Layer section."
+}

@@ -7,6 +7,8 @@ import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as sns from 'aws-cdk-lib/aws-sns';
+import * as kms from 'aws-cdk-lib/aws-kms';
 import { Construct } from 'constructs';
 
 export class CdkBaseStack extends cdk.Stack {
@@ -40,6 +42,19 @@ export class CdkBaseStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
+    // SNS notification topics with KMS encryption
+    const snsKey = kms.Alias.fromAliasName(this, 'SnsKey', 'alias/aws/sns');
+
+    const completedTopic = new sns.Topic(this, 'PipelineCompletedTopic', {
+      topicName: 'SleepAudioPipelineCompleted',
+      masterKey: snsKey,
+    });
+
+    const failedTopic = new sns.Topic(this, 'PipelineFailedTopic', {
+      topicName: 'SleepAudioPipelineFailed',
+      masterKey: snsKey,
+    });
+
     // Define the DynamoDB Write Metadata task
     const writeMetadataTask = new tasks.DynamoPutItem(this, 'Write Metadata', {
       table: metadataTable,
@@ -71,7 +86,20 @@ export class CdkBaseStack extends cdk.Stack {
       resultPath: '$.failResult',
     });
 
-    markFailedTask.next(new sfn.Fail(this, 'Pipeline Failed', {
+    // SNS Publish task for failure notification
+    const notifyFailureTask = new tasks.SnsPublish(this, 'Notify Failure', {
+      topic: failedTopic,
+      message: sfn.TaskInput.fromObject({
+        pipelineStatus: 'FAILED',
+        audioId: sfn.JsonPath.stringAt('$.detail.object.key'),
+        failedAt: sfn.JsonPath.stringAt('$$.State.EnteredTime'),
+        error: sfn.JsonPath.stringAt('$.errorInfo.Error'),
+        cause: sfn.JsonPath.stringAt('$.errorInfo.Cause'),
+      }),
+      resultPath: '$.notifyFailResult',
+    });
+
+    markFailedTask.next(notifyFailureTask).next(new sfn.Fail(this, 'Pipeline Failed', {
       cause: 'Polly synthesis failed',
       error: 'SynthesisError',
     }));
@@ -116,10 +144,29 @@ export class CdkBaseStack extends cdk.Stack {
       resultPath: '$.updateResult',
     });
 
+    // SNS Publish task for success notification
+    const notifySuccessTask = new tasks.SnsPublish(this, 'Notify Success', {
+      topic: completedTopic,
+      message: sfn.TaskInput.fromObject({
+        pipelineStatus: 'COMPLETED',
+        audioId: sfn.JsonPath.stringAt('$.detail.object.key'),
+        completedAt: sfn.JsonPath.stringAt('$$.State.EnteredTime'),
+      }),
+      resultPath: '$.notifyResult',
+    });
+
+    const doneState = new sfn.Succeed(this, 'Done');
+
+    // Add Catch on notifySuccessTask so SNS errors don't fail the execution
+    // after DynamoDB already shows COMPLETED (best-effort notification)
+    notifySuccessTask.addCatch(doneState, {
+      resultPath: '$.notifyError',
+    });
+
     // Define the state machine
     const stateMachine = new sfn.StateMachine(this, 'SleepAudioPipelineStateMachine', {
       definitionBody: sfn.DefinitionBody.fromChainable(
-        writeMetadataTask.next(pollySynthesizeTask).next(updateStatusTask).next(new sfn.Succeed(this, 'Done'))
+        writeMetadataTask.next(pollySynthesizeTask).next(updateStatusTask).next(notifySuccessTask).next(doneState)
       ),
       logs: {
         destination: logGroup,
