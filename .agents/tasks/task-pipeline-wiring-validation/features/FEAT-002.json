@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "docs",
   "description": "Update ARCHITECTURE.md to reflect the new input validation step and reordered pipeline flow. Update the Mermaid diagram to show the Validate Input Choice state, the reordered flow (Lambda before Polly), and the validation failure path. Add a section describing the validation logic and supported file formats.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Step 1 - Update the 'Currently Implemented' section in ARCHITECTURE.md to add a row for the 'Validate Input' Choice state describing what it checks (bucket, key presence; file extension validation for .wav, .mp3, .flac, .ogg).",
     "Step 2 - Update the 'Implemented Architecture Diagram' Mermaid flowchart to show the new flow: WriteMetadata -> Validate Input --(valid)--> ProcessAudio -> PollyTask -> UpdateStatus -> NotifySuccess -> Done. Add the validation failure path: Validate Input --(invalid)--> MarkFailed -> NotifyFailure -> PipelineFailed.",
@@ -22,5 +22,5 @@
     "Run 'unset NODE_OPTIONS && npx cdk synth' and confirm it succeeds"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "Documentation-only change. All 46 tests pass. Updated: Currently Implemented table (added Validate Input row, updated Lambda row), Mermaid diagram (new flow with Choice state), Orchestration Layer states (reordered 1-10), added Input Validation subsection with two-layer validation description."
 }
