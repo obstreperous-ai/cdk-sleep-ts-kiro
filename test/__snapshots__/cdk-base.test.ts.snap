@@ -445,7 +445,7 @@ def sort_filter_rules(json_obj):
               {
                 "Ref": "SleepAudioMetadataTableD77D3179",
               },
-              ""}},"Validate Input":{"Type":"Choice","Choices":[{"And":[{"Variable":"$.detail.bucket.name","IsPresent":true},{"Variable":"$.detail.object.key","IsPresent":true},{"Or":[{"Variable":"$.detail.object.key","StringMatches":"*.wav"},{"Variable":"$.detail.object.key","StringMatches":"*.mp3"},{"Variable":"$.detail.object.key","StringMatches":"*.flac"},{"Variable":"$.detail.object.key","StringMatches":"*.ogg"}]}],"Next":"Process Audio"}],"Default":"Mark Failed"},"Mark Failed":{"Next":"Notify Failure","Type":"Task","ResultPath":"$.failResult","Resource":"arn:",
+              ""}},"Validate Input":{"Type":"Choice","Choices":[{"And":[{"Variable":"$.detail.bucket.name","IsPresent":true},{"Variable":"$.detail.object.key","IsPresent":true},{"Or":[{"Variable":"$.detail.object.key","StringMatches":"*.wav"},{"Variable":"$.detail.object.key","StringMatches":"*.mp3"},{"Variable":"$.detail.object.key","StringMatches":"*.flac"},{"Variable":"$.detail.object.key","StringMatches":"*.ogg"}]}],"Next":"Process Audio"}],"Default":"Set Validation Error"},"Set Validation Error":{"Type":"Pass","Result":{"Error":"ValidationError","Cause":"Input failed validation checks: missing required fields or unsupported file extension"},"ResultPath":"$.errorInfo","Next":"Mark Failed"},"Mark Failed":{"Next":"Notify Failure","Type":"Task","ResultPath":"$.failResult","Resource":"arn:",
               {
                 "Ref": "AWS::Partition",
               },
@@ -737,7 +737,7 @@ def sort_filter_rules(json_obj):
           "S3Bucket": {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "d65f071f7670aeb114d01d6df662cbe5497590f5a6c3b954bf250211d27fc60f.zip",
+          "S3Key": "fa63182ccb804cd856b5f927ddbbbda03fbdb97867977fad3ee854568a14a297.zip",
         },
         "Environment": {
           "Variables": {

@@ -339,6 +339,22 @@ describe('CdkBaseStack', () => {
       expect(definitionText).toMatch(/Validate Input.*Choice/s);
     });
 
+    test('validation failure path includes a Set Validation Error Pass state that injects $.errorInfo', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+
+      // The Pass state should exist with type Pass
+      expect(definitionText).toContain('Set Validation Error');
+      expect(definitionText).toMatch(/Set Validation Error.*Pass/s);
+      // It should inject errorInfo with Error and Cause fields
+      expect(definitionText).toContain('$.errorInfo');
+      expect(definitionText).toContain('ValidationError');
+      expect(definitionText).toContain('Input failed validation checks');
+    });
+
     test('state machine role has sns:Publish permission scoped to topic ARNs', () => {
       template.hasResourceProperties('AWS::IAM::Policy', {
         PolicyDocument: Match.objectLike({

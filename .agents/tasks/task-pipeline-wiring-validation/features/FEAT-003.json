@@ -1,0 +1,27 @@
+{
+  "id": "FEAT-003",
+  "type": "fix",
+  "description": "Address semantic review findings: (1) Insert a Pass state to inject $.errorInfo before Mark Failed on the Choice-otherwise path, (2) Fix extensionless filename handling in Lambda, (3) Add placeholder comments for INPUT_BUCKET_NAME and OUTPUT_BUCKET_NAME env vars.",
+  "status": "in_progress",
+  "steps": [
+    "Step 1 - Add a 'Set Validation Error' Pass state in lib/cdk-base-stack.ts that injects $.errorInfo with Error and Cause fields, and wire it between the Choice .otherwise() and markFailedTask.",
+    "Step 2 - Fix extensionless filename handling in lambda/audio-processor/index.ts by checking for presence of a dot before calling lastIndexOf.",
+    "Step 3 - Add code comments in lambda/audio-processor/index.ts explaining INPUT_BUCKET_NAME and OUTPUT_BUCKET_NAME are placeholders for future audio processing logic.",
+    "Step 4 - Add a test verifying the state machine definition includes a 'Set Validation Error' Pass state.",
+    "Step 5 - Update the snapshot and verify all tests pass."
+  ],
+  "acceptance_criteria": [
+    "Choice-otherwise path routes through a Pass state that sets $.errorInfo before Mark Failed",
+    "Lambda provides clear error message for extensionless filenames",
+    "INPUT_BUCKET_NAME and OUTPUT_BUCKET_NAME have placeholder comments",
+    "All tests pass including new test for Set Validation Error state",
+    "Snapshot is updated",
+    "CDK synth succeeds"
+  ],
+  "verification": [
+    "Run 'unset NODE_OPTIONS && npx jest --no-coverage' and confirm all tests pass",
+    "Run 'unset NODE_OPTIONS && npx cdk synth' and confirm it succeeds"
+  ],
+  "blocked_reason": null,
+  "findings": null
+}

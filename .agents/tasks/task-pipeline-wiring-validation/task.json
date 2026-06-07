@@ -1,7 +1,14 @@
 {
   "task_id": "task-pipeline-wiring-validation",
   "task_description": "Complete pipeline wiring with input validation. Add a Validate Input Choice state to the Step Functions state machine that checks for required S3 event fields and valid audio file extensions. Reorder the pipeline flow to: WriteMetadata -> Validate Input -> Process Audio (Lambda with validation) -> Polly -> UpdateStatus -> NotifySuccess -> Done. Invalid inputs route to failure path. Update Lambda handler with validation logic. Update ARCHITECTURE.md.",
-  "status": "in_progress",
-  "feature_order": ["FEAT-001", "FEAT-002"],
-  "blocked_reason": null
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
+  "blocked_reason": null,
+  "verification": {
+    "build": "pass",
+    "tests": "pass",
+    "test_quality": "pass",
+    "docker_build": "skipped",
+    "summary": "All 47 tests pass (8 new tests total). CDK synth succeeds. FEAT-003 addressed semantic review findings: inserted Set Validation Error Pass state, fixed extensionless filename handling, added env var placeholder comments."
+  }
 }

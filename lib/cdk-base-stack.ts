@@ -153,6 +153,19 @@ export class CdkBaseStack extends cdk.Stack {
       resultPath: '$.errorInfo',
     });
 
+    // Pass state to inject synthetic errorInfo for the validation failure path.
+    // When the Choice state rejects input, there is no Catch/resultPath to populate
+    // $.errorInfo, so this Pass state provides the fields that Notify Failure expects.
+    const setValidationError = new sfn.Pass(this, 'Set Validation Error', {
+      result: sfn.Result.fromObject({
+        Error: 'ValidationError',
+        Cause: 'Input failed validation checks: missing required fields or unsupported file extension',
+      }),
+      resultPath: '$.errorInfo',
+    });
+
+    setValidationError.next(markFailedTask);
+
     // Define the Validate Input Choice state
     const validateInputChoice = new sfn.Choice(this, 'Validate Input')
       .when(
@@ -168,7 +181,7 @@ export class CdkBaseStack extends cdk.Stack {
         ),
         processAudioTask,
       )
-      .otherwise(markFailedTask);
+      .otherwise(setValidationError);
 
     // Define the DynamoDB Update Status task
     const updateStatusTask = new tasks.DynamoUpdateItem(this, 'Update Status', {
