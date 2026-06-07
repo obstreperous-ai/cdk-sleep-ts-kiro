@@ -134,6 +134,8 @@ export class CdkBaseStack extends cdk.Stack {
       code: lambda.Code.fromAsset('lambda/audio-processor'),
       environment: {
         TABLE_NAME: metadataTable.tableName,
+        INPUT_BUCKET_NAME: inputBucket.bucketName,
+        OUTPUT_BUCKET_NAME: outputBucket.bucketName,
       },
     });
 
@@ -150,6 +152,23 @@ export class CdkBaseStack extends cdk.Stack {
     processAudioTask.addCatch(markFailedTask, {
       resultPath: '$.errorInfo',
     });
+
+    // Define the Validate Input Choice state
+    const validateInputChoice = new sfn.Choice(this, 'Validate Input')
+      .when(
+        sfn.Condition.and(
+          sfn.Condition.isPresent('$.detail.bucket.name'),
+          sfn.Condition.isPresent('$.detail.object.key'),
+          sfn.Condition.or(
+            sfn.Condition.stringMatches('$.detail.object.key', '*.wav'),
+            sfn.Condition.stringMatches('$.detail.object.key', '*.mp3'),
+            sfn.Condition.stringMatches('$.detail.object.key', '*.flac'),
+            sfn.Condition.stringMatches('$.detail.object.key', '*.ogg'),
+          ),
+        ),
+        processAudioTask,
+      )
+      .otherwise(markFailedTask);
 
     // Define the DynamoDB Update Status task
     const updateStatusTask = new tasks.DynamoUpdateItem(this, 'Update Status', {
@@ -189,9 +208,13 @@ export class CdkBaseStack extends cdk.Stack {
     });
 
     // Define the state machine
+    // Pipeline flow: WriteMetadata -> Validate Input -> Process Audio -> Polly -> UpdateStatus -> NotifySuccess -> Done
+    // Validation failure path: Validate Input -> Mark Failed -> Notify Failure -> Pipeline Failed
+    processAudioTask.next(pollySynthesizeTask).next(updateStatusTask).next(notifySuccessTask).next(doneState);
+
     const stateMachine = new sfn.StateMachine(this, 'SleepAudioPipelineStateMachine', {
       definitionBody: sfn.DefinitionBody.fromChainable(
-        writeMetadataTask.next(pollySynthesizeTask).next(processAudioTask).next(updateStatusTask).next(notifySuccessTask).next(doneState)
+        writeMetadataTask.next(validateInputChoice)
       ),
       logs: {
         destination: logGroup,

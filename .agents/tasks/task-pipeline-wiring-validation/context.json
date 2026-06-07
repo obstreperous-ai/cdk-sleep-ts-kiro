@@ -1,0 +1,24 @@
+{
+  "project_type": "AWS CDK TypeScript infrastructure-as-code project",
+  "language": "TypeScript",
+  "build_system": "npm with TypeScript compiler (tsc). Must unset NODE_OPTIONS before running commands.",
+  "test_framework": "Jest 30 with ts-jest 29, using aws-cdk-lib/assertions Template.fromStack() for CDK assertion testing. Snapshot test also exists. Config uses setupFilesAfterEnv: aws-cdk-lib/testhelpers/jest-autoclean.",
+  "build_command": "unset NODE_OPTIONS && npx tsc",
+  "test_command": "unset NODE_OPTIONS && npx jest --no-coverage",
+  "verification_instructions": "1. Run 'unset NODE_OPTIONS && npx jest --no-coverage' - all tests must pass. 2. Run 'unset NODE_OPTIONS && npx cdk synth' - must succeed. 3. Snapshot must be updated if template changes.",
+  "snapshot_or_generated_files": "test/__snapshots__/cdk-base.test.ts.snap - auto-updated by jest with --updateSnapshot flag when template changes. Run 'unset NODE_OPTIONS && npx jest --no-coverage --updateSnapshot' to regenerate.",
+  "setup_instructions": "1. cd /projects/sandbox/cdk-sleep-ts-kiro 2. unset NODE_OPTIONS 3. npm install (already done)",
+  "environment_constraints": "COMMON_DEPENDENCIES network mode - can install npm packages. Must always 'unset NODE_OPTIONS' before running node/npm/npx commands due to proxy-bootstrap.js issue in sandbox.",
+  "contribution_requirements": "Strict TDD: write failing tests first, then minimal implementation. Conventional commits required. ARCHITECTURE.md must be updated for any infrastructure changes. Prefer L2/L3 CDK constructs. Least-privilege IAM.",
+  "key_patterns": "CDK stack in lib/cdk-base-stack.ts. Tests in test/cdk-base.test.ts use Template.fromStack() with describe/test blocks. Lambda code in lambda/audio-processor/index.ts. State machine uses CDK tasks module (DynamoPutItem, CallAwsService, LambdaInvoke, DynamoUpdateItem, SnsPublish). Error handling via addCatch() with resultPath. Current flow: WriteMetadata -> Polly -> ProcessAudio -> UpdateStatus -> NotifySuccess -> Done. Error paths use Mark Failed -> Notify Failure -> Pipeline Failed.",
+  "relevant_files": [
+    "lib/cdk-base-stack.ts",
+    "lambda/audio-processor/index.ts",
+    "test/cdk-base.test.ts",
+    "test/__snapshots__/cdk-base.test.ts.snap",
+    "ARCHITECTURE.md",
+    "CONTRIBUTING.md",
+    ".github/AGENT_GUIDELINES.md"
+  ],
+  "directory_structure": "bin/ - CDK app entry point. lib/ - CDK stack definitions. lambda/audio-processor/ - Lambda handler code. test/ - Jest test files with __snapshots__/ for snapshot tests. .github/ - CI workflows and agent guidelines."
+}

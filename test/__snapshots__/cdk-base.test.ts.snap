@@ -437,7 +437,7 @@ def sort_filter_rules(json_obj):
           "Fn::Join": [
             "",
             [
-              "{"StartAt":"Write Metadata","States":{"Write Metadata":{"Next":"Synthesize Speech","Type":"Task","ResultPath":"$.dynamoResult","Resource":"arn:",
+              "{"StartAt":"Write Metadata","States":{"Write Metadata":{"Next":"Validate Input","Type":"Task","ResultPath":"$.dynamoResult","Resource":"arn:",
               {
                 "Ref": "AWS::Partition",
               },
@@ -445,7 +445,15 @@ def sort_filter_rules(json_obj):
               {
                 "Ref": "SleepAudioMetadataTableD77D3179",
               },
-              ""}},"Synthesize Speech":{"Next":"Process Audio","Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.errorInfo","Next":"Mark Failed"}],"Type":"Task","ResultPath":"$.pollyResult","Resource":"arn:",
+              ""}},"Validate Input":{"Type":"Choice","Choices":[{"And":[{"Variable":"$.detail.bucket.name","IsPresent":true},{"Variable":"$.detail.object.key","IsPresent":true},{"Or":[{"Variable":"$.detail.object.key","StringMatches":"*.wav"},{"Variable":"$.detail.object.key","StringMatches":"*.mp3"},{"Variable":"$.detail.object.key","StringMatches":"*.flac"},{"Variable":"$.detail.object.key","StringMatches":"*.ogg"}]}],"Next":"Process Audio"}],"Default":"Mark Failed"},"Mark Failed":{"Next":"Notify Failure","Type":"Task","ResultPath":"$.failResult","Resource":"arn:",
+              {
+                "Ref": "AWS::Partition",
+              },
+              ":states:::dynamodb:updateItem","Parameters":{"Key":{"audioId":{"S.$":"$.detail.object.key"}},"TableName":"",
+              {
+                "Ref": "SleepAudioMetadataTableD77D3179",
+              },
+              "","ExpressionAttributeNames":{"#s":"status","#u":"updatedAt"},"ExpressionAttributeValues":{":status":{"S":"FAILED"},":updatedAt":{"S.$":"$$.State.EnteredTime"}},"UpdateExpression":"SET #s = :status, #u = :updatedAt"}},"Synthesize Speech":{"Next":"Update Status","Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.errorInfo","Next":"Mark Failed"}],"Type":"Task","ResultPath":"$.pollyResult","Resource":"arn:",
               {
                 "Ref": "AWS::Partition",
               },
@@ -453,7 +461,7 @@ def sort_filter_rules(json_obj):
               {
                 "Ref": "SleepAudioOutputBucketBD13D91D",
               },
-              "","OutputS3KeyPrefix.$":"$.detail.object.key","Text":"Placeholder text for sleep audio synthesis","VoiceId":"Joanna"}},"Process Audio":{"Next":"Update Status","Retry":[{"ErrorEquals":["Lambda.ClientExecutionTimeoutException","Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.errorInfo","Next":"Mark Failed"}],"Type":"Task","ResultPath":"$.processAudioResult","Resource":"arn:",
+              "","OutputS3KeyPrefix.$":"$.detail.object.key","Text":"Placeholder text for sleep audio synthesis","VoiceId":"Joanna"}},"Process Audio":{"Next":"Synthesize Speech","Retry":[{"ErrorEquals":["Lambda.ClientExecutionTimeoutException","Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.errorInfo","Next":"Mark Failed"}],"Type":"Task","ResultPath":"$.processAudioResult","Resource":"arn:",
               {
                 "Ref": "AWS::Partition",
               },
@@ -480,15 +488,7 @@ def sort_filter_rules(json_obj):
               {
                 "Ref": "PipelineCompletedTopicA74D8D79",
               },
-              "","Message":{"pipelineStatus":"COMPLETED","audioId.$":"$.detail.object.key","completedAt.$":"$$.State.EnteredTime"}}},"Done":{"Type":"Succeed"},"Mark Failed":{"Next":"Notify Failure","Type":"Task","ResultPath":"$.failResult","Resource":"arn:",
-              {
-                "Ref": "AWS::Partition",
-              },
-              ":states:::dynamodb:updateItem","Parameters":{"Key":{"audioId":{"S.$":"$.detail.object.key"}},"TableName":"",
-              {
-                "Ref": "SleepAudioMetadataTableD77D3179",
-              },
-              "","ExpressionAttributeNames":{"#s":"status","#u":"updatedAt"},"ExpressionAttributeValues":{":status":{"S":"FAILED"},":updatedAt":{"S.$":"$$.State.EnteredTime"}},"UpdateExpression":"SET #s = :status, #u = :updatedAt"}},"Notify Failure":{"Next":"Pipeline Failed","Type":"Task","ResultPath":"$.notifyFailResult","Resource":"arn:",
+              "","Message":{"pipelineStatus":"COMPLETED","audioId.$":"$.detail.object.key","completedAt.$":"$$.State.EnteredTime"}}},"Done":{"Type":"Succeed"},"Notify Failure":{"Next":"Pipeline Failed","Type":"Task","ResultPath":"$.notifyFailResult","Resource":"arn:",
               {
                 "Ref": "AWS::Partition",
               },
@@ -615,6 +615,33 @@ def sort_filter_rules(json_obj):
               },
             },
             {
+              "Action": "dynamodb:UpdateItem",
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":dynamodb:",
+                    {
+                      "Ref": "AWS::Region",
+                    },
+                    ":",
+                    {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":table/",
+                    {
+                      "Ref": "SleepAudioMetadataTableD77D3179",
+                    },
+                  ],
+                ],
+              },
+            },
+            {
               "Action": "polly:StartSpeechSynthesisTask",
               "Effect": "Allow",
               "Resource": "*",
@@ -644,33 +671,6 @@ def sort_filter_rules(json_obj):
                   ],
                 },
               ],
-            },
-            {
-              "Action": "dynamodb:UpdateItem",
-              "Effect": "Allow",
-              "Resource": {
-                "Fn::Join": [
-                  "",
-                  [
-                    "arn:",
-                    {
-                      "Ref": "AWS::Partition",
-                    },
-                    ":dynamodb:",
-                    {
-                      "Ref": "AWS::Region",
-                    },
-                    ":",
-                    {
-                      "Ref": "AWS::AccountId",
-                    },
-                    ":table/",
-                    {
-                      "Ref": "SleepAudioMetadataTableD77D3179",
-                    },
-                  ],
-                ],
-              },
             },
             {
               "Action": "sns:Publish",
@@ -737,10 +737,16 @@ def sort_filter_rules(json_obj):
           "S3Bucket": {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "a284dbf340ee0e2192f0429f876f7c799eb109d7f3d09f815c417a1456c33114.zip",
+          "S3Key": "d65f071f7670aeb114d01d6df662cbe5497590f5a6c3b954bf250211d27fc60f.zip",
         },
         "Environment": {
           "Variables": {
+            "INPUT_BUCKET_NAME": {
+              "Ref": "SleepAudioInputBucket1923DAE4",
+            },
+            "OUTPUT_BUCKET_NAME": {
+              "Ref": "SleepAudioOutputBucketBD13D91D",
+            },
             "TABLE_NAME": {
               "Ref": "SleepAudioMetadataTableD77D3179",
             },
