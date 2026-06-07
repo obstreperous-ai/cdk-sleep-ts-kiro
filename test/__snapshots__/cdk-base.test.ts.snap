@@ -445,7 +445,7 @@ def sort_filter_rules(json_obj):
               {
                 "Ref": "SleepAudioMetadataTableD77D3179",
               },
-              ""}},"Synthesize Speech":{"Next":"Update Status","Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.errorInfo","Next":"Mark Failed"}],"Type":"Task","ResultPath":"$.pollyResult","Resource":"arn:",
+              ""}},"Synthesize Speech":{"Next":"Process Audio","Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.errorInfo","Next":"Mark Failed"}],"Type":"Task","ResultPath":"$.pollyResult","Resource":"arn:",
               {
                 "Ref": "AWS::Partition",
               },
@@ -453,7 +453,18 @@ def sort_filter_rules(json_obj):
               {
                 "Ref": "SleepAudioOutputBucketBD13D91D",
               },
-              "","OutputS3KeyPrefix.$":"$.detail.object.key","Text":"Placeholder text for sleep audio synthesis","VoiceId":"Joanna"}},"Update Status":{"Next":"Notify Success","Type":"Task","ResultPath":"$.updateResult","Resource":"arn:",
+              "","OutputS3KeyPrefix.$":"$.detail.object.key","Text":"Placeholder text for sleep audio synthesis","VoiceId":"Joanna"}},"Process Audio":{"Next":"Update Status","Retry":[{"ErrorEquals":["Lambda.ClientExecutionTimeoutException","Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.errorInfo","Next":"Mark Failed"}],"Type":"Task","ResultPath":"$.processAudioResult","Resource":"arn:",
+              {
+                "Ref": "AWS::Partition",
+              },
+              ":states:::lambda:invoke","Parameters":{"FunctionName":"",
+              {
+                "Fn::GetAtt": [
+                  "SleepAudioProcessorF6F5D971",
+                  "Arn",
+                ],
+              },
+              "","Payload.$":"$"}},"Update Status":{"Next":"Notify Success","Type":"Task","ResultPath":"$.updateResult","Resource":"arn:",
               {
                 "Ref": "AWS::Partition",
               },
@@ -609,6 +620,32 @@ def sort_filter_rules(json_obj):
               "Resource": "*",
             },
             {
+              "Action": "lambda:InvokeFunction",
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "SleepAudioProcessorF6F5D971",
+                    "Arn",
+                  ],
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "SleepAudioProcessorF6F5D971",
+                          "Arn",
+                        ],
+                      },
+                      ":*",
+                    ],
+                  ],
+                },
+              ],
+            },
+            {
               "Action": "dynamodb:UpdateItem",
               "Effect": "Allow",
               "Resource": {
@@ -685,6 +722,121 @@ def sort_filter_rules(json_obj):
         "Roles": [
           {
             "Ref": "SleepAudioPipelineStateMachineRole4AD4CDA0",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "SleepAudioProcessorF6F5D971": {
+      "DependsOn": [
+        "SleepAudioProcessorServiceRoleDefaultPolicy625FED6F",
+        "SleepAudioProcessorServiceRoleC3DA27F3",
+      ],
+      "Properties": {
+        "Code": {
+          "S3Bucket": {
+            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
+          },
+          "S3Key": "a284dbf340ee0e2192f0429f876f7c799eb109d7f3d09f815c417a1456c33114.zip",
+        },
+        "Environment": {
+          "Variables": {
+            "TABLE_NAME": {
+              "Ref": "SleepAudioMetadataTableD77D3179",
+            },
+          },
+        },
+        "Handler": "index.handler",
+        "Role": {
+          "Fn::GetAtt": [
+            "SleepAudioProcessorServiceRoleC3DA27F3",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs22.x",
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "SleepAudioProcessorServiceRoleC3DA27F3": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "SleepAudioProcessorServiceRoleDefaultPolicy625FED6F": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "dynamodb:BatchGetItem",
+                "dynamodb:Query",
+                "dynamodb:GetItem",
+                "dynamodb:Scan",
+                "dynamodb:ConditionCheckItem",
+                "dynamodb:BatchWriteItem",
+                "dynamodb:PutItem",
+                "dynamodb:UpdateItem",
+                "dynamodb:DeleteItem",
+                "dynamodb:DescribeTable",
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "SleepAudioMetadataTableD77D3179",
+                    "Arn",
+                  ],
+                },
+              ],
+            },
+            {
+              "Action": [
+                "dynamodb:GetRecords",
+                "dynamodb:GetShardIterator",
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "SleepAudioMetadataTableD77D3179",
+                    "Arn",
+                  ],
+                },
+              ],
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "SleepAudioProcessorServiceRoleDefaultPolicy625FED6F",
+        "Roles": [
+          {
+            "Ref": "SleepAudioProcessorServiceRoleC3DA27F3",
           },
         ],
       },
