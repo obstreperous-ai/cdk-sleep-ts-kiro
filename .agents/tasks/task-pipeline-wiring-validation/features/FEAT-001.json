@@ -2,7 +2,7 @@
   "id": "FEAT-001",
   "type": "feat",
   "description": "Add input validation to the Step Functions state machine and Lambda handler. Reorder the pipeline flow to: WriteMetadata -> Validate Input (Choice state) -> Process Audio Lambda (with validation logic) -> Polly -> UpdateStatus -> NotifySuccess -> Done. Invalid inputs (missing bucket/key, unsupported file extensions) route to Mark Failed -> NotifyFailure -> Pipeline Failed. Write comprehensive TDD tests first, then implement.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Step 1 - Write failing tests in test/cdk-base.test.ts for the new input validation states: (a) test that state machine definition includes a 'Validate Input' Choice state, (b) test that valid file extensions (.wav, .mp3, .flac, .ogg) pass validation, (c) test that the pipeline flow order is WriteMetadata -> Validate Input -> Process Audio -> Polly -> UpdateStatus -> NotifySuccess -> Done by checking the DefinitionString contains these states in order, (d) test that the Lambda function has INPUT_BUCKET and OUTPUT_BUCKET environment variables in addition to TABLE_NAME.",
     "Step 2 - Add a 'Validate Input' Choice state in lib/cdk-base-stack.ts after WriteMetadata. The Choice state should check: (a) $.detail.bucket.name is present (IsPresent), (b) $.detail.object.key is present (IsPresent), (c) file extension matches supported formats using StringMatches (*.wav, *.mp3, *.flac, *.ogg). If validation fails, route to Mark Failed state. If passes, route to Process Audio.",
@@ -29,5 +29,5 @@
     "Run 'unset NODE_OPTIONS && npx cdk synth' and confirm it succeeds without errors"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "All 46 tests pass (7 new). CDK synth succeeds. Snapshot updated. Pipeline reorder required processAudioTask.next() chain to be defined before the StateMachine construct since Choice states cannot use .next() directly."
 }
