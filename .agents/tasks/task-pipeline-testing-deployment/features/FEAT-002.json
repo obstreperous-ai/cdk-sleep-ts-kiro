@@ -35,5 +35,5 @@
     "npx cdk synth"
   ],
   "blocked_reason": null,
-  "findings": "All 66 tests pass (19 new tests added). TypeScript compilation clean. CDK synth succeeds. Snapshot updated. The S3 notification custom resource Lambda creates a second AWS::Lambda::Function resource (total 2). CloudWatch Logs delivery permissions require wildcard resource - documented as exception alongside Polly. State machine timeout set via CDK Duration which renders as TimeoutSeconds:900 (15 min) in the definition body."
+  "findings": "All 67 tests pass (19 new tests added + 1 pipeline Deploy stage assertion). TypeScript compilation clean. CDK synth succeeds. Snapshot updated. Review fixes applied: (1) Removed duplicate environment tagging from bin/cdk-base.ts, keeping only the stack-internal tag in CdkBaseStack. (2) StateMachineName now includes environment suffix (SleepAudioPipeline-${environment}) to avoid cross-environment collision. (3) Added pipeline test asserting Deploy stage presence via Match.arrayWith/Match.objectLike. (4) ShellStep synth command now passes --context environment=dev. (5) Placeholder connection ARN left as-is per review guidance."
 }
