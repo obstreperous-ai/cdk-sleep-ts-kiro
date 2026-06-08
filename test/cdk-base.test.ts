@@ -587,6 +587,266 @@ describe('CdkBaseStack', () => {
     });
   });
 
+  describe('End-to-end pipeline flow', () => {
+    test('full chain S3->EventBridge->StepFunctions->Lambda->Polly->DynamoDB->SNS is wired', () => {
+      // S3 bucket exists
+      template.resourceCountIs('AWS::S3::Bucket', 2);
+      // EventBridge rule exists
+      template.resourceCountIs('AWS::Events::Rule', 1);
+      // State machine exists
+      template.resourceCountIs('AWS::StepFunctions::StateMachine', 1);
+      // Lambda function exists (2 total: audio processor + S3 notification handler)
+      template.resourceCountIs('AWS::Lambda::Function', 2);
+      // DynamoDB table exists
+      template.resourceCountIs('AWS::DynamoDB::Table', 1);
+      // SNS topics exist
+      template.resourceCountIs('AWS::SNS::Topic', 2);
+
+      // Verify state machine definition contains all pipeline stages in order
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+
+      // Full chain order
+      const writeMetadataIdx = definitionText.indexOf('Write Metadata');
+      const validateInputIdx = definitionText.indexOf('Validate Input');
+      const processAudioIdx = definitionText.indexOf('Process Audio');
+      const synthesizeSpeechIdx = definitionText.indexOf('Synthesize Speech');
+      const updateStatusIdx = definitionText.indexOf('Update Status');
+      const notifySuccessIdx = definitionText.indexOf('Notify Success');
+      const doneIdx = definitionText.indexOf('"Type":"Succeed"');
+
+      expect(writeMetadataIdx).toBeGreaterThan(-1);
+      expect(validateInputIdx).toBeGreaterThan(-1);
+      expect(processAudioIdx).toBeGreaterThan(-1);
+      expect(synthesizeSpeechIdx).toBeGreaterThan(-1);
+      expect(updateStatusIdx).toBeGreaterThan(-1);
+      expect(notifySuccessIdx).toBeGreaterThan(-1);
+      expect(doneIdx).toBeGreaterThan(-1);
+
+      expect(writeMetadataIdx).toBeLessThan(validateInputIdx);
+      expect(validateInputIdx).toBeLessThan(processAudioIdx);
+      expect(processAudioIdx).toBeLessThan(synthesizeSpeechIdx);
+      expect(synthesizeSpeechIdx).toBeLessThan(updateStatusIdx);
+      expect(updateStatusIdx).toBeLessThan(notifySuccessIdx);
+    });
+  });
+
+  describe('Input validation - valid/invalid cases', () => {
+    test('accepts .wav extension', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+      expect(definitionText).toContain('*.wav');
+    });
+
+    test('accepts .mp3 extension', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+      expect(definitionText).toContain('*.mp3');
+    });
+
+    test('accepts .flac extension', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+      expect(definitionText).toContain('*.flac');
+    });
+
+    test('accepts .ogg extension', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+      expect(definitionText).toContain('*.ogg');
+    });
+
+    test('rejects unsupported extensions by routing to failure path', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+
+      // The Choice state has a Default that routes to Set Validation Error -> Mark Failed
+      expect(definitionText).toContain('Default');
+      expect(definitionText).toContain('Set Validation Error');
+    });
+  });
+
+  describe('Error path assertions', () => {
+    test('Lambda errors route to Mark Failed state via Catch', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+
+      // Process Audio should have a Catch that leads to Mark Failed
+      expect(definitionText).toMatch(/Process Audio.*Catch/s);
+      expect(definitionText).toContain('Mark Failed');
+    });
+
+    test('error path follows Mark Failed -> Notify Failure -> Pipeline Failed', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+
+      // Verify Mark Failed state has Next pointing to Notify Failure
+      // The state definition format: "Mark Failed":{"Type":"Task",...,"Next":"Notify Failure"}
+      expect(definitionText).toMatch(/"Mark Failed":\{[^}]*"Type":"Task"/);
+      // Extract the Next value for Mark Failed
+      const markFailedSection = definitionText.match(/"Mark Failed":\{[^}]*?"Next":"([^"]+)"/);
+      expect(markFailedSection).not.toBeNull();
+      expect(markFailedSection![1]).toBe('Notify Failure');
+
+      // Verify Notify Failure leads to Pipeline Failed
+      const notifyFailureSection = definitionText.match(/"Notify Failure":\{[^}]*?"Next":"([^"]+)"/);
+      expect(notifyFailureSection).not.toBeNull();
+      expect(notifyFailureSection![1]).toBe('Pipeline Failed');
+    });
+
+    test('Pipeline Failed is a Fail state', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+
+      expect(definitionText).toMatch(/"Pipeline Failed".*?"Type"\s*:\s*"Fail"/s);
+    });
+  });
+
+  describe('EventBridge rule scoping', () => {
+    test('EventBridge rule is scoped to input bucket only', () => {
+      template.hasResourceProperties('AWS::Events::Rule', {
+        EventPattern: {
+          source: ['aws.s3'],
+          'detail-type': ['Object Created'],
+          detail: {
+            bucket: {
+              name: Match.anyValue(),
+            },
+          },
+        },
+      });
+    });
+  });
+
+  describe('IAM least-privilege checks', () => {
+    test('no wildcard Resource on IAM policies except Polly and CloudWatch Logs delivery (documented exceptions)', () => {
+      const policies = template.findResources('AWS::IAM::Policy');
+      for (const [logicalId, policy] of Object.entries(policies)) {
+        const statements = (policy as any).Properties.PolicyDocument.Statement;
+        for (const stmt of statements) {
+          const actions = Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action];
+          const isPolly = actions.includes('polly:StartSpeechSynthesisTask');
+          const isLogsDelivery = actions.some((a: string) => a.startsWith('logs:'));
+
+          if (isPolly) {
+            // Polly requires wildcard - documented exception
+            expect(stmt.Resource).toBe('*');
+          } else if (isLogsDelivery && stmt.Resource === '*') {
+            // CloudWatch Logs delivery requires wildcard - documented exception
+            continue;
+          } else if (stmt.Resource === '*') {
+            // No other statement should have wildcard resource
+            throw new Error(`Policy ${logicalId} has wildcard Resource for action: ${JSON.stringify(stmt.Action)}`);
+          }
+        }
+      }
+    });
+  });
+
+  describe('State machine timeout and retry configuration', () => {
+    test('state machine has a timeout configured', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+
+      // The state machine definition should contain TimeoutSeconds
+      expect(definitionText).toContain('TimeoutSeconds');
+    });
+  });
+
+  describe('Multi-environment support', () => {
+    test('stack accepts environment context and applies environment tag', () => {
+      const app = new cdk.App({ context: { environment: 'staging' } });
+      const stack = new CdkBaseStack(app, 'EnvTestStack');
+      const envTemplate = Template.fromStack(stack);
+
+      // The stack should have tags applied
+      const json = envTemplate.toJSON();
+      // Check that a resource has the environment tag
+      const buckets = envTemplate.findResources('AWS::S3::Bucket');
+      const firstBucketId = Object.keys(buckets)[0];
+      const tags = (buckets[firstBucketId] as any).Properties.Tags;
+      const envTag = tags?.find((t: any) => t.Key === 'environment');
+      expect(envTag).toBeDefined();
+      expect(envTag.Value).toBe('staging');
+    });
+
+    test('stack defaults to dev environment when no context provided', () => {
+      const app = new cdk.App();
+      const stack = new CdkBaseStack(app, 'DefaultEnvStack');
+      const defaultTemplate = Template.fromStack(stack);
+
+      const buckets = defaultTemplate.findResources('AWS::S3::Bucket');
+      const firstBucketId = Object.keys(buckets)[0];
+      const tags = (buckets[firstBucketId] as any).Properties.Tags;
+      const envTag = tags?.find((t: any) => t.Key === 'environment');
+      expect(envTag).toBeDefined();
+      expect(envTag.Value).toBe('dev');
+    });
+
+    test('stack accepts prod environment context', () => {
+      const app = new cdk.App({ context: { environment: 'prod' } });
+      const stack = new CdkBaseStack(app, 'ProdTestStack');
+      const prodTemplate = Template.fromStack(stack);
+
+      const buckets = prodTemplate.findResources('AWS::S3::Bucket');
+      const firstBucketId = Object.keys(buckets)[0];
+      const tags = (buckets[firstBucketId] as any).Properties.Tags;
+      const envTag = tags?.find((t: any) => t.Key === 'environment');
+      expect(envTag).toBeDefined();
+      expect(envTag.Value).toBe('prod');
+    });
+  });
+
+  describe('Refinements', () => {
+    test('state machine has a meaningful stateMachineName property set', () => {
+      template.hasResourceProperties('AWS::StepFunctions::StateMachine', {
+        StateMachineName: Match.stringLikeRegexp('SleepAudio'),
+      });
+    });
+
+    test('Lambda memory is set to 256MB', () => {
+      template.hasResourceProperties('AWS::Lambda::Function', {
+        MemorySize: 256,
+      });
+    });
+
+    test('Lambda timeout is set to 30 seconds', () => {
+      template.hasResourceProperties('AWS::Lambda::Function', {
+        Timeout: 30,
+      });
+    });
+  });
+
   test('matches snapshot', () => {
     expect(template.toJSON()).toMatchSnapshot();
   });

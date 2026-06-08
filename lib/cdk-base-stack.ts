@@ -16,6 +16,9 @@ export class CdkBaseStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+    const environment = this.node.tryGetContext('environment') || 'dev';
+    cdk.Tags.of(this).add('environment', environment);
+
     const inputBucket = new s3.Bucket(this, 'SleepAudioInputBucket', {
       encryption: s3.BucketEncryption.S3_MANAGED,
       versioned: true,
@@ -33,7 +36,7 @@ export class CdkBaseStack extends cdk.Stack {
       partitionKey: { name: 'audioId', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       encryption: dynamodb.TableEncryption.AWS_MANAGED,
-      pointInTimeRecovery: true,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
@@ -132,6 +135,8 @@ export class CdkBaseStack extends cdk.Stack {
       runtime: lambda.Runtime.NODEJS_22_X,
       handler: 'index.handler',
       code: lambda.Code.fromAsset('lambda/audio-processor'),
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(30),
       environment: {
         TABLE_NAME: metadataTable.tableName,
         INPUT_BUCKET_NAME: inputBucket.bucketName,
@@ -226,9 +231,11 @@ export class CdkBaseStack extends cdk.Stack {
     processAudioTask.next(pollySynthesizeTask).next(updateStatusTask).next(notifySuccessTask).next(doneState);
 
     const stateMachine = new sfn.StateMachine(this, 'SleepAudioPipelineStateMachine', {
+      stateMachineName: 'SleepAudioPipeline',
       definitionBody: sfn.DefinitionBody.fromChainable(
         writeMetadataTask.next(validateInputChoice)
       ),
+      timeout: cdk.Duration.minutes(15),
       logs: {
         destination: logGroup,
         level: sfn.LogLevel.ALL,

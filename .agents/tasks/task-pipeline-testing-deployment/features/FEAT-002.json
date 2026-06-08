@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "feat",
   "description": "Expand pipeline test coverage with comprehensive integration tests and add multi-environment deployment support with CDK Pipelines skeleton. Following strict TDD: write failing tests first, then implement.",
-  "status": "pending",
+  "status": "in_progress",
   "steps": [
     "STEP 1 - Write new failing tests in test/cdk-base.test.ts that cover: (a) Full end-to-end pipeline flow assertions verifying complete chain S3->EventBridge->StepFunctions->Lambda->Polly->DynamoDB->SNS, (b) Input validation valid/invalid cases including all 4 supported extensions and rejection of unsupported ones, (c) Error path assertions that verify Lambda errors route to Mark Failed->Notify Failure->Pipeline Failed, (d) EventBridge rule scoping to input bucket only, (e) IAM least-privilege checks verifying no wildcard permissions except where documented (Polly), (f) State machine timeout and retry configuration assertions.",
     "STEP 2 - Write new failing tests for multi-environment support: (a) Test that the stack accepts environment context via CDK app context (environment='dev'|'staging'|'prod'), (b) Test that stack tags include environment name, (c) Test a separate test file test/pipeline-stack.test.ts for the CDK Pipelines construct that verifies it creates a CodePipeline resource.",
