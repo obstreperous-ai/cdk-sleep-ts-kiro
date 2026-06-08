@@ -1,0 +1,28 @@
+{
+  "project_type": "AWS CDK TypeScript app - sleep audio processing pipeline",
+  "language": "TypeScript",
+  "build_system": "npm with tsc for compilation, CDK for infrastructure synthesis",
+  "test_framework": "Jest with ts-jest transform, aws-cdk-lib/assertions for CDK testing, snapshot tests",
+  "build_command": "npx tsc --noEmit",
+  "test_command": "npx jest",
+  "verification_instructions": "1. Run 'npx jest' to verify all tests pass. 2. Run 'npx cdk synth' to verify synthesis. 3. Update snapshot with 'npx jest --updateSnapshot' if template changes are intentional.",
+  "snapshot_or_generated_files": "test/__snapshots__/cdk-base.test.ts.snap - regenerate with 'npx jest --updateSnapshot'",
+  "setup_instructions": "npm install",
+  "environment_constraints": "COMMON_DEPENDENCIES network mode - can access npm registry. No Docker daemon assumed. Node.js available.",
+  "contribution_requirements": "Strict TDD: write failing tests first, then minimal implementation. Conventional commits. Update ARCHITECTURE.md with any infrastructure changes. Prefer L2/L3 constructs. Run tests + cdk synth before pushing.",
+  "key_patterns": "Single stack in lib/cdk-base-stack.ts. Tests use Template.fromStack() with Match utilities. App entry in bin/cdk-base.ts. Lambda code in lambda/ directory. Snapshot test at end of test file. jest.config.js uses ts-jest transform with setupFilesAfterEnv for autoclean.",
+  "relevant_files": [
+    "lib/cdk-base-stack.ts",
+    "bin/cdk-base.ts",
+    "test/cdk-base.test.ts",
+    "test/__snapshots__/cdk-base.test.ts.snap",
+    "lambda/audio-processor/index.ts",
+    "ARCHITECTURE.md",
+    "cdk.json",
+    "package.json",
+    "tsconfig.json",
+    ".github/workflows/ci.yml",
+    "jest.config.js"
+  ],
+  "directory_structure": "bin/ - CDK app entry point (cdk-base.ts). lib/ - CDK stack constructs (cdk-base-stack.ts). lambda/ - Lambda function code (audio-processor/index.ts). test/ - Jest test files + __snapshots__/. .github/workflows/ - CI config."
+}

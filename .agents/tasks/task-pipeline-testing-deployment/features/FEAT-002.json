@@ -1,0 +1,39 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Expand pipeline test coverage with comprehensive integration tests and add multi-environment deployment support with CDK Pipelines skeleton. Following strict TDD: write failing tests first, then implement.",
+  "status": "pending",
+  "steps": [
+    "STEP 1 - Write new failing tests in test/cdk-base.test.ts that cover: (a) Full end-to-end pipeline flow assertions verifying complete chain S3->EventBridge->StepFunctions->Lambda->Polly->DynamoDB->SNS, (b) Input validation valid/invalid cases including all 4 supported extensions and rejection of unsupported ones, (c) Error path assertions that verify Lambda errors route to Mark Failed->Notify Failure->Pipeline Failed, (d) EventBridge rule scoping to input bucket only, (e) IAM least-privilege checks verifying no wildcard permissions except where documented (Polly), (f) State machine timeout and retry configuration assertions.",
+    "STEP 2 - Write new failing tests for multi-environment support: (a) Test that the stack accepts environment context via CDK app context (environment='dev'|'staging'|'prod'), (b) Test that stack tags include environment name, (c) Test a separate test file test/pipeline-stack.test.ts for the CDK Pipelines construct that verifies it creates a CodePipeline resource.",
+    "STEP 3 - Write new failing tests for refinements: (a) Test that the EventBridge rule has a descriptive name/description, (b) Test that state machine has a meaningful name property, (c) Test Lambda memory and timeout configuration are explicitly set.",
+    "STEP 4 - Implement refinements to lib/cdk-base-stack.ts to make new tests pass: (a) Add explicit Lambda memory (256MB) and timeout (30s) configuration, (b) Accept environment context from app and apply Stack tags, (c) Set descriptive names where appropriate.",
+    "STEP 5 - Create lib/pipeline-stack.ts with a basic CDK Pipelines skeleton construct: (a) Uses aws-cdk-lib/pipelines CodePipeline, (b) Defines a source stage (GitHub connection placeholder), (c) Defines a synth step (npm ci && npx cdk synth), (d) Adds a stage that deploys the CdkBaseStack. This should be minimal - just enough to make the pipeline tests pass.",
+    "STEP 6 - Update bin/cdk-base.ts to support multi-environment: (a) Read 'environment' from app context (default 'dev'), (b) Pass environment as a stack tag, (c) Optionally instantiate the PipelineStack when a context flag 'pipeline' is set.",
+    "STEP 7 - Update the snapshot test by running 'npx jest --updateSnapshot' after all tests pass with the new implementation.",
+    "STEP 8 - Update ARCHITECTURE.md: (a) Add a 'Deployment & Environments' section describing the multi-environment approach via CDK context, (b) Add description of the Pipeline construct and how it works, (c) Update the Mermaid diagram if needed to show the deployment pipeline relationship, (d) Update the 'Currently Implemented' table with any new resources.",
+    "STEP 9 - Update .github/workflows/ci.yml to add environment context to the cdk synth step so it validates with a specific environment.",
+    "STEP 10 - Final verification: Run 'npx jest' (all tests pass), 'npx tsc --noEmit' (compilation clean), 'npx cdk synth' (synthesis succeeds)."
+  ],
+  "acceptance_criteria": [
+    "New tests cover end-to-end pipeline flow, input validation cases, error paths, and correct wiring between components",
+    "Tests verify multi-environment support (stack accepts environment context, tags applied)",
+    "test/pipeline-stack.test.ts exists and tests the Pipeline construct",
+    "lib/pipeline-stack.ts exists with a basic CDK Pipelines skeleton",
+    "bin/cdk-base.ts reads environment context and optionally instantiates PipelineStack",
+    "Lambda has explicit memory (256MB) and timeout (30s) configuration",
+    "All tests pass with 'npx jest'",
+    "TypeScript compilation succeeds with 'npx tsc --noEmit'",
+    "CDK synthesis succeeds with 'npx cdk synth'",
+    "ARCHITECTURE.md updated with deployment/environment documentation",
+    "Snapshot file updated to reflect new template",
+    "CI workflow updated to pass environment context to cdk synth"
+  ],
+  "verification": [
+    "npx jest",
+    "npx tsc --noEmit",
+    "npx cdk synth"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
