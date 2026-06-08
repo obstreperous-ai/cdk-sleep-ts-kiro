@@ -231,7 +231,7 @@ export class CdkBaseStack extends cdk.Stack {
     processAudioTask.next(pollySynthesizeTask).next(updateStatusTask).next(notifySuccessTask).next(doneState);
 
     const stateMachine = new sfn.StateMachine(this, 'SleepAudioPipelineStateMachine', {
-      stateMachineName: 'SleepAudioPipeline',
+      stateMachineName: `SleepAudioPipeline-${environment}`,
       definitionBody: sfn.DefinitionBody.fromChainable(
         writeMetadataTask.next(validateInputChoice)
       ),

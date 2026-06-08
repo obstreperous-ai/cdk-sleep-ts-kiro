@@ -20,7 +20,7 @@ export class PipelineStack extends cdk.Stack {
         input: CodePipelineSource.connection('owner/cdk-sleep-ts-kiro', 'main', {
           connectionArn: 'arn:aws:codeconnections:us-east-1:123456789012:connection/placeholder',
         }),
-        commands: ['npm ci', 'npx cdk synth'],
+        commands: ['npm ci', 'npx cdk synth --context environment=dev'],
       }),
     });
 

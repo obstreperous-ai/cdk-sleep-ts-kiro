@@ -5,10 +5,7 @@ import { PipelineStack } from '../lib/pipeline-stack';
 
 const app = new cdk.App();
 
-const environment = app.node.tryGetContext('environment') || 'dev';
-
-const stack = new CdkBaseStack(app, 'CdkBaseStack');
-cdk.Tags.of(stack).add('environment', environment);
+new CdkBaseStack(app, 'CdkBaseStack');
 
 const enablePipeline = app.node.tryGetContext('enablePipeline');
 if (enablePipeline === 'true') {

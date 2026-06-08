@@ -1,5 +1,5 @@
 import * as cdk from 'aws-cdk-lib/core';
-import { Template } from 'aws-cdk-lib/assertions';
+import { Template, Match } from 'aws-cdk-lib/assertions';
 import { PipelineStack } from '../lib/pipeline-stack';
 
 describe('PipelineStack', () => {
@@ -13,5 +13,13 @@ describe('PipelineStack', () => {
 
   test('creates a CodePipeline resource', () => {
     template.resourceCountIs('AWS::CodePipeline::Pipeline', 1);
+  });
+
+  test('pipeline includes a Deploy stage', () => {
+    template.hasResourceProperties('AWS::CodePipeline::Pipeline', {
+      Stages: Match.arrayWith([
+        Match.objectLike({ Name: 'Deploy' }),
+      ]),
+    });
   });
 });

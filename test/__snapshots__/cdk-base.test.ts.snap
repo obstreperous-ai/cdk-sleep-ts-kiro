@@ -576,7 +576,7 @@ def sort_filter_rules(json_obj):
             "Arn",
           ],
         },
-        "StateMachineName": "SleepAudioPipeline",
+        "StateMachineName": "SleepAudioPipeline-dev",
         "Tags": [
           {
             "Key": "environment",
