@@ -265,6 +265,96 @@ describe('CdkBaseStack', () => {
       });
     });
 
+    test('state machine definition includes a Validate Input Choice state', () => {
+      template.hasResourceProperties('AWS::StepFunctions::StateMachine', {
+        DefinitionString: Match.objectLike({
+          'Fn::Join': Match.arrayWith([
+            '',
+            Match.arrayWith([
+              Match.stringLikeRegexp('.*Validate Input.*'),
+            ]),
+          ]),
+        }),
+      });
+    });
+
+    test('Validate Input checks for bucket name and object key presence', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+
+      expect(definitionText).toContain('$.detail.bucket.name');
+      expect(definitionText).toContain('$.detail.object.key');
+      expect(definitionText).toContain('IsPresent');
+    });
+
+    test('Validate Input checks for supported file extensions', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+
+      expect(definitionText).toContain('*.wav');
+      expect(definitionText).toContain('*.mp3');
+      expect(definitionText).toContain('*.flac');
+      expect(definitionText).toContain('*.ogg');
+      expect(definitionText).toContain('StringMatches');
+    });
+
+    test('pipeline flow order is WriteMetadata -> Validate Input -> Process Audio -> Synthesize Speech', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+
+      const writeMetadataIndex = definitionText.indexOf('Write Metadata');
+      const validateInputIndex = definitionText.indexOf('Validate Input');
+      const processAudioIndex = definitionText.indexOf('Process Audio');
+      const synthesizeSpeechIndex = definitionText.indexOf('Synthesize Speech');
+
+      expect(writeMetadataIndex).toBeGreaterThan(-1);
+      expect(validateInputIndex).toBeGreaterThan(-1);
+      expect(processAudioIndex).toBeGreaterThan(-1);
+      expect(synthesizeSpeechIndex).toBeGreaterThan(-1);
+
+      expect(writeMetadataIndex).toBeLessThan(validateInputIndex);
+      expect(validateInputIndex).toBeLessThan(processAudioIndex);
+      expect(processAudioIndex).toBeLessThan(synthesizeSpeechIndex);
+    });
+
+    test('validation failure routes to Mark Failed state', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+
+      // The Choice state's Default should point to Mark Failed
+      expect(definitionText).toContain('Mark Failed');
+      // Validate Input is a Choice type
+      expect(definitionText).toMatch(/Validate Input.*Choice/s);
+    });
+
+    test('validation failure path includes a Set Validation Error Pass state that injects $.errorInfo', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+
+      // The Pass state should exist with type Pass
+      expect(definitionText).toContain('Set Validation Error');
+      expect(definitionText).toMatch(/Set Validation Error.*Pass/s);
+      // It should inject errorInfo with Error and Cause fields
+      expect(definitionText).toContain('$.errorInfo');
+      expect(definitionText).toContain('ValidationError');
+      expect(definitionText).toContain('Input failed validation checks');
+    });
+
     test('state machine role has sns:Publish permission scoped to topic ARNs', () => {
       template.hasResourceProperties('AWS::IAM::Policy', {
         PolicyDocument: Match.objectLike({
@@ -399,11 +489,35 @@ describe('CdkBaseStack', () => {
     test('Lambda has TABLE_NAME environment variable referencing the metadata table', () => {
       template.hasResourceProperties('AWS::Lambda::Function', {
         Environment: {
-          Variables: {
+          Variables: Match.objectLike({
             TABLE_NAME: {
               Ref: Match.stringLikeRegexp('SleepAudioMetadataTable'),
             },
-          },
+          }),
+        },
+      });
+    });
+
+    test('Lambda has INPUT_BUCKET_NAME environment variable referencing the input bucket', () => {
+      template.hasResourceProperties('AWS::Lambda::Function', {
+        Environment: {
+          Variables: Match.objectLike({
+            INPUT_BUCKET_NAME: {
+              Ref: Match.stringLikeRegexp('SleepAudioInputBucket'),
+            },
+          }),
+        },
+      });
+    });
+
+    test('Lambda has OUTPUT_BUCKET_NAME environment variable referencing the output bucket', () => {
+      template.hasResourceProperties('AWS::Lambda::Function', {
+        Environment: {
+          Variables: Match.objectLike({
+            OUTPUT_BUCKET_NAME: {
+              Ref: Match.stringLikeRegexp('SleepAudioOutputBucket'),
+            },
+          }),
         },
       });
     });

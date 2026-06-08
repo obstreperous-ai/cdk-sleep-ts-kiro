@@ -1,0 +1,33 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Add input validation to the Step Functions state machine and Lambda handler. Reorder the pipeline flow to: WriteMetadata -> Validate Input (Choice state) -> Process Audio Lambda (with validation logic) -> Polly -> UpdateStatus -> NotifySuccess -> Done. Invalid inputs (missing bucket/key, unsupported file extensions) route to Mark Failed -> NotifyFailure -> Pipeline Failed. Write comprehensive TDD tests first, then implement.",
+  "status": "completed",
+  "steps": [
+    "Step 1 - Write failing tests in test/cdk-base.test.ts for the new input validation states: (a) test that state machine definition includes a 'Validate Input' Choice state, (b) test that valid file extensions (.wav, .mp3, .flac, .ogg) pass validation, (c) test that the pipeline flow order is WriteMetadata -> Validate Input -> Process Audio -> Polly -> UpdateStatus -> NotifySuccess -> Done by checking the DefinitionString contains these states in order, (d) test that the Lambda function has INPUT_BUCKET and OUTPUT_BUCKET environment variables in addition to TABLE_NAME.",
+    "Step 2 - Add a 'Validate Input' Choice state in lib/cdk-base-stack.ts after WriteMetadata. The Choice state should check: (a) $.detail.bucket.name is present (IsPresent), (b) $.detail.object.key is present (IsPresent), (c) file extension matches supported formats using StringMatches (*.wav, *.mp3, *.flac, *.ogg). If validation fails, route to Mark Failed state. If passes, route to Process Audio.",
+    "Step 3 - Reorder the state machine chain in lib/cdk-base-stack.ts: writeMetadataTask -> validateInputChoice -> processAudioTask -> pollySynthesizeTask -> updateStatusTask -> notifySuccessTask -> doneState. The validateInputChoice 'otherwise' path goes to a new 'Validation Failed' DynamoDB update state (similar to Mark Failed but with status VALIDATION_FAILED and different error message) that then routes to NotifyFailure -> Pipeline Failed.",
+    "Step 4 - Update the Lambda handler in lambda/audio-processor/index.ts to add validation logic: verify that event.detail.bucket.name and event.detail.object.key exist, validate file extension is in allowed list (.wav, .mp3, .flac, .ogg), throw a clear ValidationError with descriptive message if validation fails. Also add INPUT_BUCKET and OUTPUT_BUCKET env vars to the Lambda construct in the stack.",
+    "Step 5 - Write additional tests: (a) test the state machine definition includes 'Validate Input' with Choice type checking, (b) test the error path from validation failure leads to Mark Failed/Notify Failure, (c) test the Process Audio task now appears before Synthesize Speech in the definition, (d) verify IAM permissions remain least-privilege. Use Match.stringLikeRegexp patterns on the DefinitionString Fn::Join array.",
+    "Step 6 - Update the snapshot by running 'unset NODE_OPTIONS && npx jest --no-coverage --updateSnapshot' after all tests pass.",
+    "Step 7 - Run 'unset NODE_OPTIONS && npx cdk synth' to verify synthesis succeeds."
+  ],
+  "acceptance_criteria": [
+    "State machine definition includes a 'Validate Input' Choice state",
+    "Validate Input checks for presence of detail.bucket.name and detail.object.key",
+    "Validate Input checks file extension matches supported audio formats (.wav, .mp3, .flac, .ogg)",
+    "Invalid inputs route to failure path (Mark Failed -> Notify Failure -> Pipeline Failed)",
+    "Pipeline flow order is: WriteMetadata -> Validate Input -> Process Audio -> Synthesize Speech -> UpdateStatus -> NotifySuccess -> Done",
+    "Lambda handler validates input fields and file extension, throwing clear errors on failure",
+    "All existing tests continue to pass (may need updates for reordered flow)",
+    "New tests verify validation logic, error paths, and correct flow ordering",
+    "'npx cdk synth' succeeds",
+    "Snapshot is updated to reflect new template"
+  ],
+  "verification": [
+    "Run 'unset NODE_OPTIONS && npx jest --no-coverage' and confirm all tests pass",
+    "Run 'unset NODE_OPTIONS && npx cdk synth' and confirm it succeeds without errors"
+  ],
+  "blocked_reason": null,
+  "findings": "All 46 tests pass (7 new). CDK synth succeeds. Snapshot updated. Pipeline reorder required processAudioTask.next() chain to be defined before the StateMachine construct since Choice states cannot use .next() directly."
+}
