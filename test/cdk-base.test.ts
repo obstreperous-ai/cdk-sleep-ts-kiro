@@ -754,12 +754,16 @@ describe('CdkBaseStack', () => {
           const actions = Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action];
           const isPolly = actions.includes('polly:StartSpeechSynthesisTask');
           const isLogsDelivery = actions.some((a: string) => a.startsWith('logs:'));
+          const isXRay = actions.some((a: string) => a.startsWith('xray:'));
 
           if (isPolly) {
             // Polly requires wildcard - documented exception
             expect(stmt.Resource).toBe('*');
           } else if (isLogsDelivery && stmt.Resource === '*') {
             // CloudWatch Logs delivery requires wildcard - documented exception
+            continue;
+          } else if (isXRay && stmt.Resource === '*') {
+            // X-Ray tracing requires wildcard - documented exception
             continue;
           } else if (stmt.Resource === '*') {
             // No other statement should have wildcard resource
@@ -843,6 +847,197 @@ describe('CdkBaseStack', () => {
     test('Lambda timeout is set to 30 seconds', () => {
       template.hasResourceProperties('AWS::Lambda::Function', {
         Timeout: 30,
+      });
+    });
+  });
+
+  describe('Advanced Error Handling', () => {
+    test('Process Audio task catches specific Lambda error types', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+
+      // Process Audio should have Catch with specific error types
+      expect(definitionText).toContain('States.TaskFailed');
+      expect(definitionText).toContain('Lambda.ServiceException');
+      expect(definitionText).toContain('Lambda.SdkClientException');
+    });
+
+    test('Polly Synthesize Speech task catches States.TaskFailed', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+
+      // Polly task should have a Catch block
+      expect(definitionText).toMatch(/Synthesize Speech.*Catch/s);
+      expect(definitionText).toContain('States.TaskFailed');
+    });
+
+    test('Write Metadata task has a Catch block routing to Mark Failed', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+
+      // Write Metadata should have a Catch block
+      expect(definitionText).toMatch(/Write Metadata.*Catch/s);
+    });
+
+    test('Update Status task has a Catch block routing to Mark Failed', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+
+      // Update Status should have a Catch block
+      expect(definitionText).toMatch(/Update Status.*Catch/s);
+    });
+
+    test('error notification includes error context from errorInfo', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+
+      // Notify Failure should reference $.errorInfo.Error and $.errorInfo.Cause
+      expect(definitionText).toContain('$.errorInfo.Error');
+      expect(definitionText).toContain('$.errorInfo.Cause');
+    });
+  });
+
+  describe('Retry Policies', () => {
+    test('Process Audio task has retry configuration with exponential backoff', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+
+      // Process Audio should have Retry with IntervalSeconds, MaxAttempts, BackoffRate
+      expect(definitionText).toMatch(/Process Audio.*Retry/s);
+      expect(definitionText).toContain('IntervalSeconds');
+      expect(definitionText).toContain('MaxAttempts');
+      expect(definitionText).toContain('BackoffRate');
+    });
+
+    test('Process Audio task retry has MaxAttempts 3 and BackoffRate 2', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+
+      // Extract the Process Audio state section and verify retry params
+      const processAudioSection = definitionText.match(/"Process Audio":\{[^]*?"Retry":\[([^]*?)\],"Catch"/);
+      expect(processAudioSection).not.toBeNull();
+      const retryConfig = processAudioSection![1];
+      expect(retryConfig).toContain('"MaxAttempts":3');
+      expect(retryConfig).toContain('"BackoffRate":2');
+    });
+
+    test('Synthesize Speech task has retry configuration with MaxAttempts 2', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+
+      // Polly task should have Retry configuration
+      expect(definitionText).toMatch(/Synthesize Speech.*Retry/s);
+      const pollySection = definitionText.match(/"Synthesize Speech":\{[^]*?"Retry":\[([^]*?)\],"Catch"/);
+      expect(pollySection).not.toBeNull();
+      const retryConfig = pollySection![1];
+      expect(retryConfig).toContain('"MaxAttempts":2');
+      expect(retryConfig).toContain('"BackoffRate":2');
+    });
+
+    test('Write Metadata task has retry configuration', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+
+      expect(definitionText).toMatch(/Write Metadata.*Retry/s);
+      const writeSection = definitionText.match(/"Write Metadata":\{[^]*?"Retry":\[([^]*?)\],"Catch"/);
+      expect(writeSection).not.toBeNull();
+      const retryConfig = writeSection![1];
+      expect(retryConfig).toContain('"MaxAttempts":3');
+      expect(retryConfig).toContain('"BackoffRate":2');
+    });
+
+    test('Update Status task has retry configuration', () => {
+      const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
+      const smLogicalId = Object.keys(stateMachines)[0];
+      const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
+      const joinParts = definitionString['Fn::Join'][1];
+      const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
+
+      expect(definitionText).toMatch(/Update Status.*Retry/s);
+      const updateSection = definitionText.match(/"Update Status":\{[^]*?"Retry":\[([^]*?)\],"Catch"/);
+      expect(updateSection).not.toBeNull();
+      const retryConfig = updateSection![1];
+      expect(retryConfig).toContain('"MaxAttempts":3');
+      expect(retryConfig).toContain('"BackoffRate":2');
+    });
+  });
+
+  describe('Observability - X-Ray Tracing', () => {
+    test('Lambda function has X-Ray tracing enabled (Active mode)', () => {
+      template.hasResourceProperties('AWS::Lambda::Function', {
+        TracingConfig: {
+          Mode: 'Active',
+        },
+      });
+    });
+
+    test('State machine has X-Ray tracing enabled', () => {
+      template.hasResourceProperties('AWS::StepFunctions::StateMachine', {
+        TracingConfiguration: {
+          Enabled: true,
+        },
+      });
+    });
+  });
+
+  describe('CloudWatch Alarms', () => {
+    test('CloudWatch Alarm exists for state machine execution failures', () => {
+      template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+        MetricName: 'ExecutionsFailed',
+        Namespace: 'AWS/States',
+        Statistic: 'Sum',
+        Threshold: 1,
+        ComparisonOperator: 'GreaterThanOrEqualToThreshold',
+      });
+    });
+
+    test('CloudWatch Alarm exists for Lambda function errors', () => {
+      template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+        MetricName: 'Errors',
+        Namespace: 'AWS/Lambda',
+        Statistic: 'Sum',
+        Threshold: 1,
+        ComparisonOperator: 'GreaterThanOrEqualToThreshold',
+      });
+    });
+
+    test('Alarms have appropriate evaluation periods', () => {
+      template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+        MetricName: 'ExecutionsFailed',
+        Period: 60,
+        EvaluationPeriods: 5,
+      });
+      template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+        MetricName: 'Errors',
+        Period: 60,
+        EvaluationPeriods: 5,
       });
     });
   });

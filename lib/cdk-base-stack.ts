@@ -10,6 +10,7 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import { Construct } from 'constructs';
 
 export class CdkBaseStack extends cdk.Stack {
@@ -72,6 +73,14 @@ export class CdkBaseStack extends cdk.Stack {
       resultPath: '$.dynamoResult',
     });
 
+    // Retry policy for Write Metadata
+    writeMetadataTask.addRetry({
+      errors: ['States.ALL'],
+      interval: cdk.Duration.seconds(1),
+      maxAttempts: 3,
+      backoffRate: 2.0,
+    });
+
     // Define the Mark Failed task for error handling
     const markFailedTask = new tasks.DynamoUpdateItem(this, 'Mark Failed', {
       table: metadataTable,
@@ -108,6 +117,11 @@ export class CdkBaseStack extends cdk.Stack {
       error: 'SynthesisError',
     }));
 
+    // Add Catch on Write Metadata after markFailedTask is defined
+    writeMetadataTask.addCatch(markFailedTask, {
+      resultPath: '$.errorInfo',
+    });
+
     // Define the Polly task using CallAwsService (SDK integration)
     const pollySynthesizeTask = new tasks.CallAwsService(this, 'Synthesize Speech', {
       service: 'polly',
@@ -125,8 +139,17 @@ export class CdkBaseStack extends cdk.Stack {
       resultPath: '$.pollyResult',
     });
 
+    // Retry policy for Polly task
+    pollySynthesizeTask.addRetry({
+      errors: ['States.TaskFailed'],
+      interval: cdk.Duration.seconds(3),
+      maxAttempts: 2,
+      backoffRate: 2.0,
+    });
+
     // Add error handling: if Polly fails, mark metadata as FAILED
     pollySynthesizeTask.addCatch(markFailedTask, {
+      errors: ['States.TaskFailed'],
       resultPath: '$.errorInfo',
     });
 
@@ -137,6 +160,7 @@ export class CdkBaseStack extends cdk.Stack {
       code: lambda.Code.fromAsset('lambda/audio-processor'),
       memorySize: 256,
       timeout: cdk.Duration.seconds(30),
+      tracing: lambda.Tracing.ACTIVE,
       environment: {
         TABLE_NAME: metadataTable.tableName,
         INPUT_BUCKET_NAME: inputBucket.bucketName,
@@ -153,8 +177,17 @@ export class CdkBaseStack extends cdk.Stack {
       resultPath: '$.processAudioResult',
     });
 
+    // Retry policy for Process Audio (Lambda)
+    processAudioTask.addRetry({
+      errors: ['States.TaskFailed', 'Lambda.ServiceException', 'Lambda.SdkClientException'],
+      interval: cdk.Duration.seconds(2),
+      maxAttempts: 3,
+      backoffRate: 2.0,
+    });
+
     // Add error handling: if Lambda fails, mark metadata as FAILED
     processAudioTask.addCatch(markFailedTask, {
+      errors: ['States.TaskFailed', 'Lambda.ServiceException', 'Lambda.SdkClientException'],
       resultPath: '$.errorInfo',
     });
 
@@ -206,6 +239,19 @@ export class CdkBaseStack extends cdk.Stack {
       resultPath: '$.updateResult',
     });
 
+    // Retry policy for Update Status
+    updateStatusTask.addRetry({
+      errors: ['States.ALL'],
+      interval: cdk.Duration.seconds(1),
+      maxAttempts: 3,
+      backoffRate: 2.0,
+    });
+
+    // Catch errors on Update Status
+    updateStatusTask.addCatch(markFailedTask, {
+      resultPath: '$.errorInfo',
+    });
+
     // SNS Publish task for success notification
     const notifySuccessTask = new tasks.SnsPublish(this, 'Notify Success', {
       topic: completedTopic,
@@ -236,6 +282,7 @@ export class CdkBaseStack extends cdk.Stack {
         writeMetadataTask.next(validateInputChoice)
       ),
       timeout: cdk.Duration.minutes(15),
+      tracingEnabled: true,
       logs: {
         destination: logGroup,
         level: sfn.LogLevel.ALL,
@@ -267,5 +314,26 @@ export class CdkBaseStack extends cdk.Stack {
     });
 
     rule.addTarget(new targets.SfnStateMachine(stateMachine));
+
+    // CloudWatch Alarms for observability
+    new cloudwatch.Alarm(this, 'StateMachineFailedAlarm', {
+      metric: stateMachine.metricFailed({
+        period: cdk.Duration.minutes(1),
+      }),
+      threshold: 1,
+      evaluationPeriods: 5,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      alarmDescription: 'Alarm when state machine executions fail',
+    });
+
+    new cloudwatch.Alarm(this, 'LambdaErrorsAlarm', {
+      metric: audioProcessorFunction.metricErrors({
+        period: cdk.Duration.minutes(1),
+      }),
+      threshold: 1,
+      evaluationPeriods: 5,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      alarmDescription: 'Alarm when Lambda function errors occur',
+    });
   }
 }
