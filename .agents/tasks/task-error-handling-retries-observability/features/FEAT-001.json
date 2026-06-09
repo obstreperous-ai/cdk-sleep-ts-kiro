@@ -2,7 +2,7 @@
   "id": "FEAT-001",
   "type": "feat",
   "description": "Add advanced error handling, retry policies, X-Ray tracing, CloudWatch alarms, and observability to the CDK stack following strict TDD - write failing tests first, then implement.",
-  "status": "completed",
+  "status": "in_progress",
   "steps": [
     "Step 1: Write failing tests in test/cdk-base.test.ts for advanced error handling. Add a new describe('Advanced Error Handling') block that asserts: (a) the state machine definition contains specific error type catches (States.TaskFailed, Lambda.ServiceException, Lambda.SdkClientException) on the Process Audio task, (b) the Polly task catches Polly-specific errors, (c) the Write Metadata and Update Status DynamoDB tasks have Catch blocks routing to the Mark Failed state, (d) error paths include error context in the notification message (error type and cause).",
     "Step 2: Write failing tests for retry policies. Add a describe('Retry Policies') block asserting: (a) Process Audio (Lambda) task has retry configuration with exponential backoff (IntervalSeconds, MaxAttempts, BackoffRate), (b) Synthesize Speech (Polly) task has retry configuration, (c) Write Metadata and Update Status (DynamoDB) tasks have retry configuration, (d) verify specific retry parameters (MaxAttempts <= 3, BackoffRate of 2.0).",

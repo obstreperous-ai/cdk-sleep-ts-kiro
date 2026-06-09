@@ -242,6 +242,11 @@ def sort_filter_rules(json_obj):
     },
     "LambdaErrorsAlarm8ED74A7D": {
       "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "PipelineFailedTopic64B61AAF",
+          },
+        ],
         "AlarmDescription": "Alarm when Lambda function errors occur",
         "ComparisonOperator": "GreaterThanOrEqualToThreshold",
         "Dimensions": [
@@ -534,7 +539,7 @@ def sort_filter_rules(json_obj):
               {
                 "Ref": "SleepAudioMetadataTableD77D3179",
               },
-              "","ExpressionAttributeNames":{"#s":"status","#u":"updatedAt"},"ExpressionAttributeValues":{":status":{"S":"FAILED"},":updatedAt":{"S.$":"$$.State.EnteredTime"}},"UpdateExpression":"SET #s = :status, #u = :updatedAt"}},"Synthesize Speech":{"Next":"Update Status","Retry":[{"ErrorEquals":["States.TaskFailed"],"IntervalSeconds":3,"MaxAttempts":2,"BackoffRate":2}],"Catch":[{"ErrorEquals":["States.TaskFailed"],"ResultPath":"$.errorInfo","Next":"Mark Failed"}],"Type":"Task","ResultPath":"$.pollyResult","Resource":"arn:",
+              "","ExpressionAttributeNames":{"#s":"status","#u":"updatedAt"},"ExpressionAttributeValues":{":status":{"S":"FAILED"},":updatedAt":{"S.$":"$$.State.EnteredTime"}},"UpdateExpression":"SET #s = :status, #u = :updatedAt"}},"Synthesize Speech":{"Next":"Update Status","Retry":[{"ErrorEquals":["States.TaskFailed"],"IntervalSeconds":3,"MaxAttempts":2,"BackoffRate":2}],"Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.errorInfo","Next":"Mark Failed"}],"Type":"Task","ResultPath":"$.pollyResult","Resource":"arn:",
               {
                 "Ref": "AWS::Partition",
               },
@@ -542,7 +547,7 @@ def sort_filter_rules(json_obj):
               {
                 "Ref": "SleepAudioOutputBucketBD13D91D",
               },
-              "","OutputS3KeyPrefix.$":"$.detail.object.key","Text":"Placeholder text for sleep audio synthesis","VoiceId":"Joanna"}},"Process Audio":{"Next":"Synthesize Speech","Retry":[{"ErrorEquals":["Lambda.ClientExecutionTimeoutException","Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2},{"ErrorEquals":["States.TaskFailed","Lambda.ServiceException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":3,"BackoffRate":2}],"Catch":[{"ErrorEquals":["States.TaskFailed","Lambda.ServiceException","Lambda.SdkClientException"],"ResultPath":"$.errorInfo","Next":"Mark Failed"}],"Type":"Task","ResultPath":"$.processAudioResult","Resource":"arn:",
+              "","OutputS3KeyPrefix.$":"$.detail.object.key","Text":"Placeholder text for sleep audio synthesis","VoiceId":"Joanna"}},"Process Audio":{"Next":"Synthesize Speech","Retry":[{"ErrorEquals":["States.TaskFailed","Lambda.ServiceException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":3,"BackoffRate":2}],"Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.errorInfo","Next":"Mark Failed"}],"Type":"Task","ResultPath":"$.processAudioResult","Resource":"arn:",
               {
                 "Ref": "AWS::Partition",
               },
@@ -988,6 +993,11 @@ def sort_filter_rules(json_obj):
     },
     "StateMachineFailedAlarm79113CC8": {
       "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "PipelineFailedTopic64B61AAF",
+          },
+        ],
         "AlarmDescription": "Alarm when state machine executions fail",
         "ComparisonOperator": "GreaterThanOrEqualToThreshold",
         "Dimensions": [

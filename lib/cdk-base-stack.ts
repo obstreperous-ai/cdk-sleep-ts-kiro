@@ -11,6 +11,7 @@ import * as sns from 'aws-cdk-lib/aws-sns';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+import * as cw_actions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import { Construct } from 'constructs';
 
 export class CdkBaseStack extends cdk.Stack {
@@ -149,7 +150,6 @@ export class CdkBaseStack extends cdk.Stack {
 
     // Add error handling: if Polly fails, mark metadata as FAILED
     pollySynthesizeTask.addCatch(markFailedTask, {
-      errors: ['States.TaskFailed'],
       resultPath: '$.errorInfo',
     });
 
@@ -175,6 +175,7 @@ export class CdkBaseStack extends cdk.Stack {
     const processAudioTask = new tasks.LambdaInvoke(this, 'Process Audio', {
       lambdaFunction: audioProcessorFunction,
       resultPath: '$.processAudioResult',
+      retryOnServiceExceptions: false,
     });
 
     // Retry policy for Process Audio (Lambda)
@@ -187,7 +188,6 @@ export class CdkBaseStack extends cdk.Stack {
 
     // Add error handling: if Lambda fails, mark metadata as FAILED
     processAudioTask.addCatch(markFailedTask, {
-      errors: ['States.TaskFailed', 'Lambda.ServiceException', 'Lambda.SdkClientException'],
       resultPath: '$.errorInfo',
     });
 
@@ -316,7 +316,7 @@ export class CdkBaseStack extends cdk.Stack {
     rule.addTarget(new targets.SfnStateMachine(stateMachine));
 
     // CloudWatch Alarms for observability
-    new cloudwatch.Alarm(this, 'StateMachineFailedAlarm', {
+    const stateMachineFailedAlarm = new cloudwatch.Alarm(this, 'StateMachineFailedAlarm', {
       metric: stateMachine.metricFailed({
         period: cdk.Duration.minutes(1),
       }),
@@ -325,8 +325,9 @@ export class CdkBaseStack extends cdk.Stack {
       comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
       alarmDescription: 'Alarm when state machine executions fail',
     });
+    stateMachineFailedAlarm.addAlarmAction(new cw_actions.SnsAction(failedTopic));
 
-    new cloudwatch.Alarm(this, 'LambdaErrorsAlarm', {
+    const lambdaErrorsAlarm = new cloudwatch.Alarm(this, 'LambdaErrorsAlarm', {
       metric: audioProcessorFunction.metricErrors({
         period: cdk.Duration.minutes(1),
       }),
@@ -335,5 +336,6 @@ export class CdkBaseStack extends cdk.Stack {
       comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
       alarmDescription: 'Alarm when Lambda function errors occur',
     });
+    lambdaErrorsAlarm.addAlarmAction(new cw_actions.SnsAction(failedTopic));
   }
 }

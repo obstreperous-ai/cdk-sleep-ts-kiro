@@ -852,29 +852,28 @@ describe('CdkBaseStack', () => {
   });
 
   describe('Advanced Error Handling', () => {
-    test('Process Audio task catches specific Lambda error types', () => {
+    test('Process Audio task catches all errors (States.ALL)', () => {
       const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
       const smLogicalId = Object.keys(stateMachines)[0];
       const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
       const joinParts = definitionString['Fn::Join'][1];
       const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
 
-      // Process Audio should have Catch with specific error types
-      expect(definitionText).toContain('States.TaskFailed');
-      expect(definitionText).toContain('Lambda.ServiceException');
-      expect(definitionText).toContain('Lambda.SdkClientException');
+      // Process Audio should have Catch with States.ALL (catch-all)
+      expect(definitionText).toMatch(/Process Audio.*Catch/s);
+      expect(definitionText).toContain('States.ALL');
     });
 
-    test('Polly Synthesize Speech task catches States.TaskFailed', () => {
+    test('Polly Synthesize Speech task catches all errors (States.ALL)', () => {
       const stateMachines = template.findResources('AWS::StepFunctions::StateMachine');
       const smLogicalId = Object.keys(stateMachines)[0];
       const definitionString = stateMachines[smLogicalId].Properties.DefinitionString;
       const joinParts = definitionString['Fn::Join'][1];
       const definitionText = joinParts.filter((p: any) => typeof p === 'string').join('');
 
-      // Polly task should have a Catch block
+      // Polly task should have a Catch block with States.ALL
       expect(definitionText).toMatch(/Synthesize Speech.*Catch/s);
-      expect(definitionText).toContain('States.TaskFailed');
+      expect(definitionText).toContain('States.ALL');
     });
 
     test('Write Metadata task has a Catch block routing to Mark Failed', () => {
@@ -1038,6 +1037,21 @@ describe('CdkBaseStack', () => {
         MetricName: 'Errors',
         Period: 60,
         EvaluationPeriods: 5,
+      });
+    });
+
+    test('Alarms have alarm actions wired to the failed topic', () => {
+      template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+        MetricName: 'ExecutionsFailed',
+        AlarmActions: Match.arrayWith([
+          Match.objectLike({ Ref: Match.stringLikeRegexp('PipelineFailedTopic') }),
+        ]),
+      });
+      template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+        MetricName: 'Errors',
+        AlarmActions: Match.arrayWith([
+          Match.objectLike({ Ref: Match.stringLikeRegexp('PipelineFailedTopic') }),
+        ]),
       });
     });
   });

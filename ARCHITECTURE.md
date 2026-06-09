@@ -77,8 +77,8 @@ The **Step Functions state machine** (`SleepAudioPipelineStateMachine`) serves a
 
 **Error handling:**
 - The Validate Input Choice state provides fast-fail for clearly invalid inputs (missing bucket/key or unsupported file extension), routing them directly to Mark Failed without invoking Lambda or Polly.
-- The Process Audio Lambda has a Catch clause that routes errors to the Mark Failed state, handling runtime validation failures and unexpected exceptions. Catches specific errors: `States.TaskFailed`, `Lambda.ServiceException`, `Lambda.SdkClientException`.
-- The Polly task has a Catch clause that routes `States.TaskFailed` errors to the Mark Failed state, ensuring the DynamoDB metadata record accurately reflects pipeline failures instead of remaining stuck in PROCESSING status indefinitely.
+- The Process Audio Lambda has a Catch clause that routes errors to the Mark Failed state, handling runtime validation failures and unexpected exceptions. Uses catch-all (`States.ALL`) to ensure no error type can bypass the failure path.
+- The Polly task has a Catch clause that routes all errors to the Mark Failed state, ensuring the DynamoDB metadata record accurately reflects pipeline failures instead of remaining stuck in PROCESSING status indefinitely. Uses catch-all (`States.ALL`) while retry remains scoped to `States.TaskFailed`.
 - The Write Metadata task has a Catch clause routing errors to the Mark Failed state, handling DynamoDB write failures.
 - The Update Status task has a Catch clause routing errors to the Mark Failed state, handling DynamoDB update failures.
 - All failure paths converge on Mark Failed -> Notify Failure -> Pipeline Failed, ensuring consistent error reporting regardless of where the failure occurs.
@@ -92,7 +92,7 @@ The **Step Functions state machine** (`SleepAudioPipelineStateMachine`) serves a
 | Write Metadata (DynamoDB) | States.ALL | 1s | 3 | 2.0 |
 | Update Status (DynamoDB) | States.ALL | 1s | 3 | 2.0 |
 
-All retries use exponential backoff. Retries are attempted before falling through to the Catch handler, so transient failures are automatically recovered without triggering the error path.
+All retries use exponential backoff. Retries are attempted before falling through to the Catch handler, so transient failures are automatically recovered without triggering the error path. The CDK LambdaInvoke default retry policy is disabled (`retryOnServiceExceptions: false`) to prevent duplicate retry entries and ensure only the custom retry applies.
 
 ### Input Validation
 
@@ -141,7 +141,7 @@ The pipeline implements comprehensive observability through multiple layers:
 | State Machine Failures | ExecutionsFailed | AWS/States | >= 1 | 60s | 5 |
 | Lambda Errors | Errors | AWS/Lambda | >= 1 | 60s | 5 |
 
-Both alarms use Sum statistic with GreaterThanOrEqualToThreshold comparison, triggering when at least one failure occurs within a 5-minute evaluation window.
+Both alarms use Sum statistic with GreaterThanOrEqualToThreshold comparison, triggering when at least one failure occurs within a 5-minute evaluation window. Both alarms are wired to the `PipelineFailedTopic` SNS topic via alarm actions, ensuring operators are notified when alarms fire.
 
 **Future states** (to be added in subsequent features): Bedrock audio enhancement and metadata extraction.
 
