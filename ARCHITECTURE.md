@@ -14,7 +14,8 @@ The following resources are deployed in the CDK stack today:
 | **Step Functions State Machine** | `SleepAudioPipelineStateMachine` | Orchestrates the audio processing pipeline. Triggered by EventBridge on new audio uploads. CloudWatch logging enabled (level ALL). |
 | **Polly Task State** | `Synthesize Speech` | Invokes Amazon Polly `StartSpeechSynthesisTask` to synthesize speech (voice: Joanna, format: MP3). Output written to the S3 Output Bucket. |
 | **Validate Input (Choice)** | `Validate Input` | Choice state that fast-fails clearly invalid inputs. Checks: bucket name presence, object key presence, and file extension is a supported audio format (.wav, .mp3, .flac, .ogg). Invalid inputs route directly to the failure path. |
-| **Lambda Function** | `SleepAudioProcessor` | Audio processing with input validation (Node.js 22.x). Validates bucket name, object key, and file extension at runtime. Logs input and returns processing status. Has read/write access to the DynamoDB Metadata Table. Environment variables: TABLE_NAME, INPUT_BUCKET_NAME, OUTPUT_BUCKET_NAME. |
+| **Lambda Function** | `SleepAudioProcessor` | Audio processing with input validation (Node.js 22.x, 256MB memory, 30s timeout). Validates bucket name, object key, and file extension at runtime. Logs input and returns processing status. Has read/write access to the DynamoDB Metadata Table. Environment variables: TABLE_NAME, INPUT_BUCKET_NAME, OUTPUT_BUCKET_NAME. |
+| **CDK Pipeline** | `PipelineStack` | Optional CDK Pipelines construct for CI/CD. Uses CodePipeline with a GitHub connection source and ShellStep synth. Deploys CdkBaseStack via a stage. Enabled via `--context enablePipeline=true`. |
 | **DynamoDB Metadata Table** | `SleepAudioMetadataTable` | Stores audio pipeline metadata. Partition key: `audioId` (String). On-demand billing, AWS-managed encryption, point-in-time recovery enabled. |
 | **SNS Completed Topic** | `PipelineCompletedTopic` | Publishes notification on successful pipeline completion. KMS-encrypted (aws/sns managed key). |
 | **SNS Failed Topic** | `PipelineFailedTopic` | Publishes notification on pipeline failure. KMS-encrypted (aws/sns managed key). |
@@ -117,6 +118,40 @@ Subscribers (mobile apps, dashboards, alerting systems) can subscribe to one or 
 ## Metadata Layer
 
 The **DynamoDB Metadata Table** (`SleepAudioMetadataTable`) tracks the execution state of each audio processing pipeline run. When a new audio file triggers the pipeline, the state machine writes an initial record with status `PROCESSING` before beginning synthesis. After successful Polly synthesis, the record is updated to `COMPLETED` with a timestamp. This provides a queryable audit trail of all pipeline executions and their outcomes, enabling downstream consumers to check processing status without polling the state machine directly.
+
+## Deployment & Environments
+
+The pipeline supports multi-environment deployment through CDK context values. The environment is read from the `environment` context variable and defaults to `dev` if not specified.
+
+### Setting the Environment
+
+```bash
+# Deploy to dev (default)
+npx cdk deploy
+
+# Deploy to staging
+npx cdk deploy --context environment=staging
+
+# Deploy to production
+npx cdk deploy --context environment=prod
+```
+
+The environment value is applied as a tag (`environment`) on all resources in the stack, enabling cost allocation and resource identification by environment.
+
+### CDK Pipelines Construct
+
+The project includes an optional `PipelineStack` (`lib/pipeline-stack.ts`) that implements a CI/CD pipeline using CDK Pipelines. It is enabled by setting the `enablePipeline` context flag:
+
+```bash
+npx cdk deploy --context enablePipeline=true
+```
+
+The pipeline construct:
+- Sources code from a GitHub connection (placeholder ARN, to be configured per account)
+- Runs `npm ci` and `npx cdk synth` in a ShellStep for synthesis
+- Deploys the `CdkBaseStack` via a deployment stage
+
+This is a skeleton that can be extended with additional stages (e.g., manual approval, integration tests) as needed.
 
 ---
 

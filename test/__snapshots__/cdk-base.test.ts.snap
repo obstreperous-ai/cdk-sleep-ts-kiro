@@ -14,6 +14,12 @@ exports[`CdkBaseStack matches snapshot 1`] = `
       "DeletionPolicy": "Delete",
       "Properties": {
         "RetentionInDays": 7,
+        "Tags": [
+          {
+            "Key": "environment",
+            "Value": "dev",
+          },
+        ],
       },
       "Type": "AWS::Logs::LogGroup",
       "UpdateReplacePolicy": "Delete",
@@ -38,6 +44,12 @@ exports[`CdkBaseStack matches snapshot 1`] = `
           ],
         },
         "State": "ENABLED",
+        "Tags": [
+          {
+            "Key": "environment",
+            "Value": "dev",
+          },
+        ],
         "Targets": [
           {
             "Arn": {
@@ -181,6 +193,12 @@ def sort_filter_rules(json_obj):
           ],
         },
         "Runtime": "python3.13",
+        "Tags": [
+          {
+            "Key": "environment",
+            "Value": "dev",
+          },
+        ],
         "Timeout": 300,
       },
       "Type": "AWS::Lambda::Function",
@@ -213,6 +231,12 @@ def sort_filter_rules(json_obj):
             ],
           },
         ],
+        "Tags": [
+          {
+            "Key": "environment",
+            "Value": "dev",
+          },
+        ],
       },
       "Type": "AWS::IAM::Role",
     },
@@ -238,6 +262,12 @@ def sort_filter_rules(json_obj):
             ],
           ],
         },
+        "Tags": [
+          {
+            "Key": "environment",
+            "Value": "dev",
+          },
+        ],
         "TopicName": "SleepAudioPipelineCompleted",
       },
       "Type": "AWS::SNS::Topic",
@@ -264,6 +294,12 @@ def sort_filter_rules(json_obj):
             ],
           ],
         },
+        "Tags": [
+          {
+            "Key": "environment",
+            "Value": "dev",
+          },
+        ],
         "TopicName": "SleepAudioPipelineFailed",
       },
       "Type": "AWS::SNS::Topic",
@@ -286,6 +322,12 @@ def sort_filter_rules(json_obj):
           "IgnorePublicAcls": true,
           "RestrictPublicBuckets": true,
         },
+        "Tags": [
+          {
+            "Key": "environment",
+            "Value": "dev",
+          },
+        ],
         "VersioningConfiguration": {
           "Status": "Enabled",
         },
@@ -363,6 +405,12 @@ def sort_filter_rules(json_obj):
         "SSESpecification": {
           "SSEEnabled": true,
         },
+        "Tags": [
+          {
+            "Key": "environment",
+            "Value": "dev",
+          },
+        ],
       },
       "Type": "AWS::DynamoDB::Table",
       "UpdateReplacePolicy": "Retain",
@@ -385,6 +433,12 @@ def sort_filter_rules(json_obj):
           "IgnorePublicAcls": true,
           "RestrictPublicBuckets": true,
         },
+        "Tags": [
+          {
+            "Key": "environment",
+            "Value": "dev",
+          },
+        ],
         "VersioningConfiguration": {
           "Status": "Enabled",
         },
@@ -496,7 +550,7 @@ def sort_filter_rules(json_obj):
               {
                 "Ref": "PipelineFailedTopic64B61AAF",
               },
-              "","Message":{"pipelineStatus":"FAILED","audioId.$":"$.detail.object.key","failedAt.$":"$$.State.EnteredTime","error.$":"$.errorInfo.Error","cause.$":"$.errorInfo.Cause"}}},"Pipeline Failed":{"Type":"Fail","Error":"SynthesisError","Cause":"Polly synthesis failed"}}}",
+              "","Message":{"pipelineStatus":"FAILED","audioId.$":"$.detail.object.key","failedAt.$":"$$.State.EnteredTime","error.$":"$.errorInfo.Error","cause.$":"$.errorInfo.Cause"}}},"Pipeline Failed":{"Type":"Fail","Error":"SynthesisError","Cause":"Polly synthesis failed"}},"TimeoutSeconds":900}",
             ],
           ],
         },
@@ -522,6 +576,13 @@ def sort_filter_rules(json_obj):
             "Arn",
           ],
         },
+        "StateMachineName": "SleepAudioPipeline-dev",
+        "Tags": [
+          {
+            "Key": "environment",
+            "Value": "dev",
+          },
+        ],
       },
       "Type": "AWS::StepFunctions::StateMachine",
       "UpdateReplacePolicy": "Delete",
@@ -540,6 +601,12 @@ def sort_filter_rules(json_obj):
           ],
           "Version": "2012-10-17",
         },
+        "Tags": [
+          {
+            "Key": "environment",
+            "Value": "dev",
+          },
+        ],
       },
       "Type": "AWS::IAM::Role",
     },
@@ -580,6 +647,12 @@ def sort_filter_rules(json_obj):
           ],
           "Version": "2012-10-17",
         },
+        "Tags": [
+          {
+            "Key": "environment",
+            "Value": "dev",
+          },
+        ],
       },
       "Type": "AWS::IAM::Role",
     },
@@ -753,6 +826,7 @@ def sort_filter_rules(json_obj):
           },
         },
         "Handler": "index.handler",
+        "MemorySize": 256,
         "Role": {
           "Fn::GetAtt": [
             "SleepAudioProcessorServiceRoleC3DA27F3",
@@ -760,6 +834,13 @@ def sort_filter_rules(json_obj):
           ],
         },
         "Runtime": "nodejs22.x",
+        "Tags": [
+          {
+            "Key": "environment",
+            "Value": "dev",
+          },
+        ],
+        "Timeout": 30,
       },
       "Type": "AWS::Lambda::Function",
     },
@@ -789,6 +870,12 @@ def sort_filter_rules(json_obj):
                 ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
               ],
             ],
+          },
+        ],
+        "Tags": [
+          {
+            "Key": "environment",
+            "Value": "dev",
           },
         ],
       },

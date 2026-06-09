@@ -19,12 +19,12 @@ jobs:
 
       - run: npm test
 
-      - run: npx cdk synth
+      - run: npx cdk synth --context environment=dev
 
       - name: Run CDK diff
         id: cdk-diff
         continue-on-error: true
-        run: npx cdk diff
+        run: npx cdk diff --context environment=dev
 
       - name: Report CDK diff failure
         if: steps.cdk-diff.outcome == 'failure'
