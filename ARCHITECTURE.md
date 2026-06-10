@@ -28,13 +28,17 @@ flowchart TD
     S3Input -->|Object Created event| EB[EventBridge Rule]
     EB -->|Start Execution| SFN[Step Functions State Machine]
     SFN --> WriteMetadata[DynamoDB: Write Metadata]
+    WriteMetadata -->|Retry on failure| WriteMetadata
     WriteMetadata --> ValidateInput{Validate Input}
     ValidateInput -->|Valid| ProcessAudio[Lambda: Process Audio]
     ValidateInput -->|Invalid| MarkFailed[DynamoDB: Mark Failed]
+    ProcessAudio -->|Retry on failure| ProcessAudio
     ProcessAudio -->|Success| PollyTask[Polly: StartSpeechSynthesisTask]
     ProcessAudio -->|Error| MarkFailed
+    PollyTask -->|Retry on failure| PollyTask
     PollyTask -->|Success| UpdateStatus[DynamoDB: Update Status]
     PollyTask -->|Error| MarkFailed
+    UpdateStatus -->|Retry on failure| UpdateStatus
     UpdateStatus --> NotifySuccess[SNS: Notify Success]
     NotifySuccess --> Done([Done])
     MarkFailed --> NotifyFailure[SNS: Notify Failure]
@@ -48,6 +52,10 @@ flowchart TD
     SNSCompleted --> Subscribers([Subscribers])
     SNSFailed --> Subscribers
     PollyTask --> S3Output[S3 Output Bucket]
+    XRay[AWS X-Ray] -.->|Traces| SFN
+    XRay -.->|Traces| ProcessAudio
+    CWAlarms[CloudWatch Alarms] -.->|Monitors| SFN
+    CWAlarms -.->|Monitors| ProcessAudio
 ```
 
 ## Orchestration Layer
@@ -69,9 +77,22 @@ The **Step Functions state machine** (`SleepAudioPipelineStateMachine`) serves a
 
 **Error handling:**
 - The Validate Input Choice state provides fast-fail for clearly invalid inputs (missing bucket/key or unsupported file extension), routing them directly to Mark Failed without invoking Lambda or Polly.
-- The Process Audio Lambda has a Catch clause that routes errors to the Mark Failed state, handling runtime validation failures and unexpected exceptions.
-- The Polly task has a Catch clause that routes errors to the Mark Failed state, ensuring the DynamoDB metadata record accurately reflects pipeline failures instead of remaining stuck in PROCESSING status indefinitely.
+- The Process Audio Lambda has a Catch clause that routes errors to the Mark Failed state, handling runtime validation failures and unexpected exceptions. Uses catch-all (`States.ALL`) to ensure no error type can bypass the failure path.
+- The Polly task has a Catch clause that routes all errors to the Mark Failed state, ensuring the DynamoDB metadata record accurately reflects pipeline failures instead of remaining stuck in PROCESSING status indefinitely. Uses catch-all (`States.ALL`) while retry remains scoped to `States.TaskFailed`.
+- The Write Metadata task has a Catch clause routing errors to the Mark Failed state, handling DynamoDB write failures.
+- The Update Status task has a Catch clause routing errors to the Mark Failed state, handling DynamoDB update failures.
 - All failure paths converge on Mark Failed -> Notify Failure -> Pipeline Failed, ensuring consistent error reporting regardless of where the failure occurs.
+
+**Retry policies:**
+
+| Task | Error Types | Interval | Max Attempts | Backoff Rate |
+|------|-------------|----------|--------------|--------------|
+| Process Audio (Lambda) | States.TaskFailed, Lambda.ServiceException, Lambda.SdkClientException | 2s | 3 | 2.0 |
+| Synthesize Speech (Polly) | States.TaskFailed | 3s | 2 | 2.0 |
+| Write Metadata (DynamoDB) | States.ALL | 1s | 3 | 2.0 |
+| Update Status (DynamoDB) | States.ALL | 1s | 3 | 2.0 |
+
+All retries use exponential backoff. Retries are attempted before falling through to the Catch handler, so transient failures are automatically recovered without triggering the error path. The CDK LambdaInvoke default retry policy is disabled (`retryOnServiceExceptions: false`) to prevent duplicate retry entries and ensure only the custom retry applies.
 
 ### Input Validation
 
@@ -97,8 +118,30 @@ The pipeline employs a two-layer validation strategy:
 
 **Security:**
 - The state machine execution role follows least-privilege principles with permissions scoped to `polly:StartSpeechSynthesisTask`, `s3:PutObject` on the output bucket, `lambda:InvokeFunction` on the SleepAudioProcessor, and DynamoDB operations on the metadata table only.
-- The Lambda execution role has read/write access to the DynamoDB Metadata Table and CloudWatch Logs permissions for observability.
+- The Lambda execution role has read/write access to the DynamoDB Metadata Table, CloudWatch Logs permissions for observability, and X-Ray tracing permissions.
 - CloudWatch logging is enabled at level ALL with execution data included for full observability.
+
+### Observability
+
+The pipeline implements comprehensive observability through multiple layers:
+
+**X-Ray Tracing:**
+- The Lambda function (`SleepAudioProcessor`) has active X-Ray tracing enabled, providing end-to-end request tracing and performance insights.
+- The Step Functions state machine has tracing enabled, allowing distributed trace correlation across all pipeline states.
+
+**Structured Logging:**
+- The Lambda handler uses structured JSON logging with fields: `timestamp`, `level`, `message`, `requestId`, `functionName`, and contextual data.
+- All log entries include the AWS request ID for correlation with X-Ray traces.
+- Log levels: INFO for normal operations, ERROR for validation failures and exceptions.
+
+**CloudWatch Alarms:**
+
+| Alarm | Metric | Namespace | Threshold | Period | Evaluation Periods |
+|-------|--------|-----------|-----------|--------|-------------------|
+| State Machine Failures | ExecutionsFailed | AWS/States | >= 1 | 60s | 5 |
+| Lambda Errors | Errors | AWS/Lambda | >= 1 | 60s | 5 |
+
+Both alarms use Sum statistic with GreaterThanOrEqualToThreshold comparison, triggering when at least one failure occurs within a 5-minute evaluation window. Both alarms are wired to the `PipelineFailedTopic` SNS topic via alarm actions, ensuring operators are notified when alarms fire.
 
 **Future states** (to be added in subsequent features): Bedrock audio enhancement and metadata extraction.
 

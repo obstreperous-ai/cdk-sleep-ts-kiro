@@ -240,6 +240,38 @@ def sort_filter_rules(json_obj):
       },
       "Type": "AWS::IAM::Role",
     },
+    "LambdaErrorsAlarm8ED74A7D": {
+      "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "PipelineFailedTopic64B61AAF",
+          },
+        ],
+        "AlarmDescription": "Alarm when Lambda function errors occur",
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "Dimensions": [
+          {
+            "Name": "FunctionName",
+            "Value": {
+              "Ref": "SleepAudioProcessorF6F5D971",
+            },
+          },
+        ],
+        "EvaluationPeriods": 5,
+        "MetricName": "Errors",
+        "Namespace": "AWS/Lambda",
+        "Period": 60,
+        "Statistic": "Sum",
+        "Tags": [
+          {
+            "Key": "environment",
+            "Value": "dev",
+          },
+        ],
+        "Threshold": 1,
+      },
+      "Type": "AWS::CloudWatch::Alarm",
+    },
     "PipelineCompletedTopicA74D8D79": {
       "Properties": {
         "KmsMasterKeyId": {
@@ -491,7 +523,7 @@ def sort_filter_rules(json_obj):
           "Fn::Join": [
             "",
             [
-              "{"StartAt":"Write Metadata","States":{"Write Metadata":{"Next":"Validate Input","Type":"Task","ResultPath":"$.dynamoResult","Resource":"arn:",
+              "{"StartAt":"Write Metadata","States":{"Write Metadata":{"Next":"Validate Input","Retry":[{"ErrorEquals":["States.ALL"],"IntervalSeconds":1,"MaxAttempts":3,"BackoffRate":2}],"Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.errorInfo","Next":"Mark Failed"}],"Type":"Task","ResultPath":"$.dynamoResult","Resource":"arn:",
               {
                 "Ref": "AWS::Partition",
               },
@@ -507,7 +539,7 @@ def sort_filter_rules(json_obj):
               {
                 "Ref": "SleepAudioMetadataTableD77D3179",
               },
-              "","ExpressionAttributeNames":{"#s":"status","#u":"updatedAt"},"ExpressionAttributeValues":{":status":{"S":"FAILED"},":updatedAt":{"S.$":"$$.State.EnteredTime"}},"UpdateExpression":"SET #s = :status, #u = :updatedAt"}},"Synthesize Speech":{"Next":"Update Status","Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.errorInfo","Next":"Mark Failed"}],"Type":"Task","ResultPath":"$.pollyResult","Resource":"arn:",
+              "","ExpressionAttributeNames":{"#s":"status","#u":"updatedAt"},"ExpressionAttributeValues":{":status":{"S":"FAILED"},":updatedAt":{"S.$":"$$.State.EnteredTime"}},"UpdateExpression":"SET #s = :status, #u = :updatedAt"}},"Synthesize Speech":{"Next":"Update Status","Retry":[{"ErrorEquals":["States.TaskFailed"],"IntervalSeconds":3,"MaxAttempts":2,"BackoffRate":2}],"Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.errorInfo","Next":"Mark Failed"}],"Type":"Task","ResultPath":"$.pollyResult","Resource":"arn:",
               {
                 "Ref": "AWS::Partition",
               },
@@ -515,7 +547,7 @@ def sort_filter_rules(json_obj):
               {
                 "Ref": "SleepAudioOutputBucketBD13D91D",
               },
-              "","OutputS3KeyPrefix.$":"$.detail.object.key","Text":"Placeholder text for sleep audio synthesis","VoiceId":"Joanna"}},"Process Audio":{"Next":"Synthesize Speech","Retry":[{"ErrorEquals":["Lambda.ClientExecutionTimeoutException","Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.errorInfo","Next":"Mark Failed"}],"Type":"Task","ResultPath":"$.processAudioResult","Resource":"arn:",
+              "","OutputS3KeyPrefix.$":"$.detail.object.key","Text":"Placeholder text for sleep audio synthesis","VoiceId":"Joanna"}},"Process Audio":{"Next":"Synthesize Speech","Retry":[{"ErrorEquals":["States.TaskFailed","Lambda.ServiceException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":3,"BackoffRate":2}],"Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.errorInfo","Next":"Mark Failed"}],"Type":"Task","ResultPath":"$.processAudioResult","Resource":"arn:",
               {
                 "Ref": "AWS::Partition",
               },
@@ -526,7 +558,7 @@ def sort_filter_rules(json_obj):
                   "Arn",
                 ],
               },
-              "","Payload.$":"$"}},"Update Status":{"Next":"Notify Success","Type":"Task","ResultPath":"$.updateResult","Resource":"arn:",
+              "","Payload.$":"$"}},"Update Status":{"Next":"Notify Success","Retry":[{"ErrorEquals":["States.ALL"],"IntervalSeconds":1,"MaxAttempts":3,"BackoffRate":2}],"Catch":[{"ErrorEquals":["States.ALL"],"ResultPath":"$.errorInfo","Next":"Mark Failed"}],"Type":"Task","ResultPath":"$.updateResult","Resource":"arn:",
               {
                 "Ref": "AWS::Partition",
               },
@@ -583,6 +615,9 @@ def sort_filter_rules(json_obj):
             "Value": "dev",
           },
         ],
+        "TracingConfiguration": {
+          "Enabled": true,
+        },
       },
       "Type": "AWS::StepFunctions::StateMachine",
       "UpdateReplacePolicy": "Delete",
@@ -775,6 +810,16 @@ def sort_filter_rules(json_obj):
             },
             {
               "Action": [
+                "xray:PutTraceSegments",
+                "xray:PutTelemetryRecords",
+                "xray:GetSamplingRules",
+                "xray:GetSamplingTargets",
+              ],
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+            {
+              "Action": [
                 "dynamodb:PutItem",
                 "dynamodb:UpdateItem",
               ],
@@ -810,7 +855,7 @@ def sort_filter_rules(json_obj):
           "S3Bucket": {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "fa63182ccb804cd856b5f927ddbbbda03fbdb97867977fad3ee854568a14a297.zip",
+          "S3Key": "4e0565d886dc511ab331318cc2b7be031fe830af76b548630ec3cf70a633bb75.zip",
         },
         "Environment": {
           "Variables": {
@@ -841,6 +886,9 @@ def sort_filter_rules(json_obj):
           },
         ],
         "Timeout": 30,
+        "TracingConfig": {
+          "Mode": "Active",
+        },
       },
       "Type": "AWS::Lambda::Function",
     },
@@ -885,6 +933,14 @@ def sort_filter_rules(json_obj):
       "Properties": {
         "PolicyDocument": {
           "Statement": [
+            {
+              "Action": [
+                "xray:PutTraceSegments",
+                "xray:PutTelemetryRecords",
+              ],
+              "Effect": "Allow",
+              "Resource": "*",
+            },
             {
               "Action": [
                 "dynamodb:BatchGetItem",
@@ -934,6 +990,38 @@ def sort_filter_rules(json_obj):
         ],
       },
       "Type": "AWS::IAM::Policy",
+    },
+    "StateMachineFailedAlarm79113CC8": {
+      "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "PipelineFailedTopic64B61AAF",
+          },
+        ],
+        "AlarmDescription": "Alarm when state machine executions fail",
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "Dimensions": [
+          {
+            "Name": "StateMachineArn",
+            "Value": {
+              "Ref": "SleepAudioPipelineStateMachine741D1700",
+            },
+          },
+        ],
+        "EvaluationPeriods": 5,
+        "MetricName": "ExecutionsFailed",
+        "Namespace": "AWS/States",
+        "Period": 60,
+        "Statistic": "Sum",
+        "Tags": [
+          {
+            "Key": "environment",
+            "Value": "dev",
+          },
+        ],
+        "Threshold": 1,
+      },
+      "Type": "AWS::CloudWatch::Alarm",
     },
   },
   "Rules": {

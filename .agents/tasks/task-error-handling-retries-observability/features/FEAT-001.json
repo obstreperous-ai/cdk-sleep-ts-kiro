@@ -1,0 +1,43 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Add advanced error handling, retry policies, X-Ray tracing, CloudWatch alarms, and observability to the CDK stack following strict TDD - write failing tests first, then implement.",
+  "status": "completed",
+  "steps": [
+    "Step 1: Write failing tests in test/cdk-base.test.ts for advanced error handling. Add a new describe('Advanced Error Handling') block that asserts: (a) the state machine definition contains specific error type catches (States.TaskFailed, Lambda.ServiceException, Lambda.SdkClientException) on the Process Audio task, (b) the Polly task catches Polly-specific errors, (c) the Write Metadata and Update Status DynamoDB tasks have Catch blocks routing to the Mark Failed state, (d) error paths include error context in the notification message (error type and cause).",
+    "Step 2: Write failing tests for retry policies. Add a describe('Retry Policies') block asserting: (a) Process Audio (Lambda) task has retry configuration with exponential backoff (IntervalSeconds, MaxAttempts, BackoffRate), (b) Synthesize Speech (Polly) task has retry configuration, (c) Write Metadata and Update Status (DynamoDB) tasks have retry configuration, (d) verify specific retry parameters (MaxAttempts <= 3, BackoffRate of 2.0).",
+    "Step 3: Write failing tests for X-Ray tracing. Add a describe('Observability - X-Ray Tracing') block asserting: (a) the Lambda function has TracingConfig Mode set to Active, (b) the state machine has TracingConfiguration Enabled set to true.",
+    "Step 4: Write failing tests for CloudWatch Alarms. Add a describe('CloudWatch Alarms') block asserting: (a) a CloudWatch Alarm exists for state machine execution failures (metric: ExecutionsFailed), (b) a CloudWatch Alarm exists for Lambda function errors (metric: Errors), (c) alarms have appropriate thresholds and evaluation periods.",
+    "Step 5: Implement advanced error handling in lib/cdk-base-stack.ts. Add Catch blocks with specific error types to processAudioTask (catching Lambda.ServiceException, Lambda.SdkClientException, States.TaskFailed), pollySynthesizeTask (catching States.TaskFailed), and add Catch blocks to writeMetadataTask and updateStatusTask routing to markFailedTask with resultPath $.errorInfo.",
+    "Step 6: Implement retry policies in lib/cdk-base-stack.ts. Add retry configuration to: processAudioTask (errors: [States.TaskFailed, Lambda.ServiceException], interval: 2s, maxAttempts: 3, backoffRate: 2.0), pollySynthesizeTask (errors: [States.TaskFailed], interval: 3s, maxAttempts: 2, backoffRate: 2.0), writeMetadataTask and updateStatusTask (errors: [States.ALL], interval: 1s, maxAttempts: 3, backoffRate: 2.0).",
+    "Step 7: Implement X-Ray tracing in lib/cdk-base-stack.ts. Enable tracing on the Lambda function (tracing: lambda.Tracing.ACTIVE) and on the state machine (tracingEnabled: true).",
+    "Step 8: Implement CloudWatch Alarms in lib/cdk-base-stack.ts. Add CloudWatch alarms: (a) StateMachine execution failures alarm using stateMachine.metricFailed() with threshold 1 and evaluation period of 1 minute over 5 minutes, (b) Lambda errors alarm using audioProcessorFunction.metricErrors() with threshold 1 and evaluation period of 1 minute over 5 minutes.",
+    "Step 9: Update the Lambda handler in lambda/audio-processor/index.ts to use structured JSON logging with requestId, status fields, and timestamps. Replace console.log with structured JSON format.",
+    "Step 10: Run NODE_OPTIONS=\"\" npx jest --no-cache -u to update snapshots and verify all tests pass.",
+    "Step 11: Run NODE_OPTIONS=\"\" npx cdk synth to verify synthesis succeeds.",
+    "Step 12: Update ARCHITECTURE.md - add an 'Error Handling & Retry Strategy' section documenting the retry policies (which tasks, intervals, max attempts, backoff rates), specific error types caught, and update the Mermaid diagram to show retry loops and X-Ray/CloudWatch integration. Add an 'Observability' section documenting X-Ray tracing, structured logging, and CloudWatch alarms."
+  ],
+  "acceptance_criteria": [
+    "All new tests pass (retry policies, error handling, X-Ray tracing, CloudWatch alarms)",
+    "processAudioTask has retry configuration with MaxAttempts 3, BackoffRate 2.0",
+    "pollySynthesizeTask has retry configuration with MaxAttempts 2, BackoffRate 2.0",
+    "DynamoDB tasks (writeMetadata, updateStatus) have retry configuration",
+    "All task states have Catch blocks routing errors to Mark Failed",
+    "Lambda function has X-Ray tracing enabled (TracingConfig Active)",
+    "State machine has tracing enabled",
+    "CloudWatch Alarm exists for state machine execution failures",
+    "CloudWatch Alarm exists for Lambda errors",
+    "Lambda handler uses structured JSON logging",
+    "NODE_OPTIONS=\"\" npx jest --no-cache passes all tests including updated snapshot",
+    "NODE_OPTIONS=\"\" npx cdk synth succeeds",
+    "ARCHITECTURE.md is updated with error handling strategy, retry policies, and observability details",
+    "Existing 67 tests continue to pass (no regressions)",
+    "IAM least-privilege test still passes (no new wildcard resources except documented exceptions)"
+  ],
+  "verification": [
+    "NODE_OPTIONS=\"\" npx jest --no-cache (all tests pass)",
+    "NODE_OPTIONS=\"\" npx cdk synth (synthesis succeeds)"
+  ],
+  "blocked_reason": null,
+  "findings": "X-Ray tracing on Lambda adds xray:PutTraceSegments and xray:PutTelemetryRecords IAM permissions with wildcard Resource - added as documented exception in IAM least-privilege test. CDK LambdaInvoke default retry is now disabled via retryOnServiceExceptions: false to prevent duplicate retry policies. Catch blocks on Process Audio and Polly restored to catch-all (States.ALL) so no error type bypasses the Mark Failed path. Both CloudWatch alarms now wire to the failedTopic SNS topic via alarm actions."
+}
