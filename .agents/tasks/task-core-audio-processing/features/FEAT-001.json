@@ -1,0 +1,31 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Implement core audio processing Lambda with TDD: write failing unit tests for the Lambda handler covering S3 download, Polly synthesis, S3 upload, DynamoDB metadata update, and error paths. Then implement the real processing logic to make tests pass. Also update CDK stack to grant Lambda necessary S3 permissions (read from input bucket, write to output bucket), increase Lambda timeout/memory for audio processing, and update the snapshot.",
+  "status": "in_progress",
+  "steps": [
+    "Install AWS SDK v3 packages as devDependencies in root package.json for mocking in tests: @aws-sdk/client-s3, @aws-sdk/client-dynamodb, @aws-sdk/client-polly, @aws-sdk/lib-dynamodb. These are devDependencies because the Node.js 22.x Lambda runtime includes them at deploy time.",
+    "Create test/audio-processor.test.ts with comprehensive unit tests for the Lambda handler using jest.mock to mock AWS SDK clients. Tests should cover: (1) Happy path - downloads input from S3, calls Polly to synthesize speech from text content or processes audio file, uploads processed output to S3 output bucket with naming convention (original-key + timestamp/UUID), updates DynamoDB metadata with output location/status COMPLETED/file size, returns structured success response. (2) Error paths - S3 download failure gracefully handled, Polly synthesis failure gracefully handled, S3 upload failure gracefully handled, DynamoDB update failure gracefully handled. (3) Input type detection - text/prompt files (.txt) trigger Polly synthesis path, audio files (.mp3, .wav, .flac, .ogg) trigger audio processing/passthrough path. Write these tests FIRST so they FAIL before implementation.",
+    "Implement the real processing logic in lambda/audio-processor/index.ts: (a) Import AWS SDK v3 clients (S3Client, GetObjectCommand, PutObjectCommand; DynamoDBClient + DynamoDBDocumentClient + UpdateCommand; PollyClient, SynthesizeSpeechCommand). (b) Download input file from S3 input bucket using the event detail.bucket.name and detail.object.key. (c) Detect input type: if content-type or extension is .txt, treat as text prompt for Polly synthesis; otherwise treat as audio for processing/passthrough. (d) For text input: call Polly SynthesizeSpeechCommand with Engine neural, VoiceId Joanna, OutputFormat mp3 to get audio stream. (e) For audio input: read the audio bytes (basic passthrough/normalization placeholder - actual audio DSP is out of scope). (f) Upload processed output to S3 output bucket with key format: processed/<original-key-without-extension>-<timestamp>.mp3. (g) Update DynamoDB metadata: set status=COMPLETED, outputBucket, outputKey (S3 URI), fileSize, processedAt timestamp. (h) Return structured response with statusCode 200, audioId, outputKey, outputBucket, fileSize, processed=true.",
+    "Update lib/cdk-base-stack.ts: (a) Grant Lambda read access to input bucket: inputBucket.grantRead(audioProcessorFunction). (b) Grant Lambda write access to output bucket: outputBucket.grantWrite(audioProcessorFunction). (c) Add polly:SynthesizeSpeech permission to Lambda role (addToPolicy with scoped IAM statement). (d) Increase Lambda timeout from 30s to 120s for audio processing. (e) Increase Lambda memory from 256MB to 512MB for handling audio files.",
+    "Update test/cdk-base.test.ts to reflect CDK changes: add tests verifying Lambda has S3 read permission on input bucket, S3 write permission on output bucket, Polly SynthesizeSpeech permission, updated timeout (120s), and updated memory (512MB). Update existing tests if timeout/memory assertions exist.",
+    "Update the snapshot: run `unset NODE_OPTIONS && npx jest -u` to regenerate test/__snapshots__/cdk-base.test.ts.snap.",
+    "Run full test suite and cdk synth to confirm everything passes: `unset NODE_OPTIONS && npx jest --passWithNoTests` and `unset NODE_OPTIONS && npx cdk synth`."
+  ],
+  "acceptance_criteria": [
+    "test/audio-processor.test.ts exists with tests covering happy path (S3 download -> process -> S3 upload -> DynamoDB update -> success response), error paths (S3/Polly/DynamoDB failures), and input type detection (text vs audio)",
+    "lambda/audio-processor/index.ts implements real S3 download, Polly synthesis (for text), S3 upload with clear naming convention, and DynamoDB metadata update",
+    "CDK stack grants Lambda read on input bucket, write on output bucket, and polly:SynthesizeSpeech permission",
+    "Lambda timeout is 120s and memory is 512MB",
+    "All tests pass including new Lambda unit tests and existing CDK tests",
+    "cdk synth succeeds without errors",
+    "Snapshot is updated"
+  ],
+  "verification": [
+    "Run `unset NODE_OPTIONS && npx jest --passWithNoTests` - all tests pass including new audio-processor.test.ts",
+    "Run `unset NODE_OPTIONS && npx cdk synth` - synthesizes successfully",
+    "Run `unset NODE_OPTIONS && npx tsc --noEmit` - no TypeScript errors"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
