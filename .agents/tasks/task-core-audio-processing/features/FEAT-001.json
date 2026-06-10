@@ -2,7 +2,7 @@
   "id": "FEAT-001",
   "type": "feat",
   "description": "Implement core audio processing Lambda with TDD: write failing unit tests for the Lambda handler covering S3 download, Polly synthesis, S3 upload, DynamoDB metadata update, and error paths. Then implement the real processing logic to make tests pass. Also update CDK stack to grant Lambda necessary S3 permissions (read from input bucket, write to output bucket), increase Lambda timeout/memory for audio processing, and update the snapshot.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Install AWS SDK v3 packages as devDependencies in root package.json for mocking in tests: @aws-sdk/client-s3, @aws-sdk/client-dynamodb, @aws-sdk/client-polly, @aws-sdk/lib-dynamodb. These are devDependencies because the Node.js 22.x Lambda runtime includes them at deploy time.",
     "Create test/audio-processor.test.ts with comprehensive unit tests for the Lambda handler using jest.mock to mock AWS SDK clients. Tests should cover: (1) Happy path - downloads input from S3, calls Polly to synthesize speech from text content or processes audio file, uploads processed output to S3 output bucket with naming convention (original-key + timestamp/UUID), updates DynamoDB metadata with output location/status COMPLETED/file size, returns structured success response. (2) Error paths - S3 download failure gracefully handled, Polly synthesis failure gracefully handled, S3 upload failure gracefully handled, DynamoDB update failure gracefully handled. (3) Input type detection - text/prompt files (.txt) trigger Polly synthesis path, audio files (.mp3, .wav, .flac, .ogg) trigger audio processing/passthrough path. Write these tests FIRST so they FAIL before implementation.",
@@ -27,5 +27,5 @@
     "Run `unset NODE_OPTIONS && npx tsc --noEmit` - no TypeScript errors"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "CDK grantWrite uses actions [s3:Abort*, s3:DeleteObject*, s3:PutObject, s3:PutObjectLegalHold, s3:PutObjectRetention, s3:PutObjectTagging, s3:PutObjectVersionTagging] not [s3:PutObject*, s3:Abort*]. CDK merges polly:SynthesizeSpeech with xray actions in same policy statement when tracing is active. Snapshot updated successfully. All 104 tests pass including 20 new Lambda unit tests."
 }
