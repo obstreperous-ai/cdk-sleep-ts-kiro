@@ -855,7 +855,7 @@ def sort_filter_rules(json_obj):
           "S3Bucket": {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "6639e7612a6a5059dbdcc70095b008a100dfc83bf690d9f8967e838dce5ceeb4.zip",
+          "S3Key": "d20ba611944f18fe92fa771d1760159636de6f5595932fdf235f0fccbeb363e4.zip",
         },
         "Environment": {
           "Variables": {

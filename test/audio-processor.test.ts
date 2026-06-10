@@ -95,7 +95,7 @@ describe('Audio Processor Lambda Handler', () => {
     test('throws error when file has no extension', async () => {
       const event = {
         detail: {
-          bucket: { name: 'test-bucket' },
+          bucket: { name: 'test-input-bucket' },
           object: { key: 'audio/noextension' },
         },
       };
@@ -108,7 +108,7 @@ describe('Audio Processor Lambda Handler', () => {
     test('throws error for unsupported file extension', async () => {
       const event = {
         detail: {
-          bucket: { name: 'test-bucket' },
+          bucket: { name: 'test-input-bucket' },
           object: { key: 'audio/test.pdf' },
         },
       };
@@ -116,6 +116,107 @@ describe('Audio Processor Lambda Handler', () => {
       await expect(handler(event, mockContext, () => {})).rejects.toThrow(
         "Validation failed: unsupported file extension '.pdf'"
       );
+    });
+
+    test('throws error when event bucket does not match INPUT_BUCKET_NAME', async () => {
+      const event = {
+        detail: {
+          bucket: { name: 'wrong-bucket' },
+          object: { key: 'audio/test.mp3' },
+        },
+      };
+
+      await expect(handler(event, mockContext, () => {})).rejects.toThrow(
+        "Validation failed: event bucket 'wrong-bucket' does not match expected input bucket 'test-input-bucket'"
+      );
+    });
+
+    test('throws error when file size exceeds MAX_FILE_SIZE', async () => {
+      const contentLength = 150 * 1024 * 1024; // 150 MB, exceeds 100 MB limit
+
+      mockS3Send.mockResolvedValueOnce({
+        ContentLength: contentLength,
+        Body: createMockStream(Buffer.from('small-mock-data')),
+      });
+
+      const event = {
+        detail: {
+          bucket: { name: 'test-input-bucket' },
+          object: { key: 'audio/huge-file.mp3' },
+        },
+      };
+
+      await expect(handler(event, mockContext, () => {})).rejects.toThrow(
+        `Validation failed: file size ${contentLength} bytes exceeds maximum allowed size of ${100 * 1024 * 1024} bytes (100 MB)`
+      );
+    });
+
+    test('throws error when text exceeds Polly 3000 character limit', async () => {
+      const longText = 'a'.repeat(3001);
+
+      mockS3Send.mockResolvedValueOnce({
+        ContentLength: longText.length,
+        Body: createMockStream(Buffer.from(longText)),
+      });
+
+      const event = {
+        detail: {
+          bucket: { name: 'test-input-bucket' },
+          object: { key: 'prompts/long-story.txt' },
+        },
+      };
+
+      await expect(handler(event, mockContext, () => {})).rejects.toThrow(
+        'Validation failed: text length 3001 characters exceeds Polly SynthesizeSpeech limit of 3000 characters'
+      );
+    });
+
+    test('allows text exactly at 3000 character limit', async () => {
+      const exactText = 'a'.repeat(3000);
+      const audioBuffer = Buffer.from('mock-audio-data');
+
+      mockS3Send.mockResolvedValueOnce({
+        ContentLength: exactText.length,
+        Body: createMockStream(Buffer.from(exactText)),
+      });
+      mockPollySend.mockResolvedValueOnce({
+        AudioStream: createMockStream(audioBuffer),
+      });
+      mockS3Send.mockResolvedValueOnce({}); // PutObject
+      mockDynamoSend.mockResolvedValueOnce({}); // UpdateCommand
+
+      const event = {
+        detail: {
+          bucket: { name: 'test-input-bucket' },
+          object: { key: 'prompts/exact-limit.txt' },
+        },
+      };
+
+      const result = await handler(event, mockContext, () => {});
+      expect(result!.statusCode).toBe(200);
+      expect(result!.processed).toBe(true);
+    });
+
+    test('allows file size exactly at MAX_FILE_SIZE boundary', async () => {
+      const audioBuffer = Buffer.from('audio-data');
+
+      mockS3Send.mockResolvedValueOnce({
+        ContentLength: 100 * 1024 * 1024, // exactly 100 MB
+        Body: createMockStream(audioBuffer),
+      });
+      mockS3Send.mockResolvedValueOnce({}); // PutObject
+      mockDynamoSend.mockResolvedValueOnce({}); // UpdateCommand
+
+      const event = {
+        detail: {
+          bucket: { name: 'test-input-bucket' },
+          object: { key: 'audio/big-but-ok.mp3' },
+        },
+      };
+
+      const result = await handler(event, mockContext, () => {});
+      expect(result!.statusCode).toBe(200);
+      expect(result!.processed).toBe(true);
     });
   });
 

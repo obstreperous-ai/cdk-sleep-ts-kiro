@@ -5,6 +5,8 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 const ALLOWED_EXTENSIONS = ['.wav', '.mp3', '.flac', '.ogg', '.txt'];
+const MAX_POLLY_TEXT_LENGTH = 3000;
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
 
 const s3Client = new S3Client({});
 const pollyClient = new PollyClient({});
@@ -86,6 +88,17 @@ export const handler: Handler<ProcessAudioEvent, ProcessAudioResponse> = async (
     throw new Error('Validation failed: missing detail.object.key in event');
   }
 
+  // Validate event bucket matches expected input bucket
+  if (bucketName !== inputBucketName) {
+    logStructured('ERROR', 'Validation failed: event bucket does not match expected input bucket', context, {
+      eventBucket: bucketName,
+      expectedBucket: inputBucketName,
+    });
+    throw new Error(
+      `Validation failed: event bucket '${bucketName}' does not match expected input bucket '${inputBucketName}'`
+    );
+  }
+
   // Validate file extension
   const extension = getExtension(objectKey);
   if (!extension) {
@@ -121,6 +134,20 @@ export const handler: Handler<ProcessAudioEvent, ProcessAudioResponse> = async (
       Bucket: bucketName,
       Key: objectKey,
     }));
+
+    // Check file size before downloading body into memory
+    const contentLength = getObjectResponse.ContentLength;
+    if (contentLength !== undefined && contentLength > MAX_FILE_SIZE) {
+      logStructured('ERROR', 'Validation failed: file size exceeds maximum allowed', context, {
+        objectKey,
+        contentLength,
+        maxFileSize: MAX_FILE_SIZE,
+      });
+      throw new Error(
+        `Validation failed: file size ${contentLength} bytes exceeds maximum allowed size of ${MAX_FILE_SIZE} bytes (${MAX_FILE_SIZE / (1024 * 1024)} MB)`
+      );
+    }
+
     const inputBody = await streamToBuffer(getObjectResponse.Body);
 
     // Step 2: Determine processing path based on file extension
@@ -130,6 +157,18 @@ export const handler: Handler<ProcessAudioEvent, ProcessAudioResponse> = async (
       // Text input: synthesize speech using Polly
       logStructured('INFO', 'Text file detected, synthesizing speech with Polly', context, { objectKey });
       const textContent = inputBody.toString('utf-8');
+
+      // Validate text length against Polly SynthesizeSpeech limit
+      if (textContent.length > MAX_POLLY_TEXT_LENGTH) {
+        logStructured('ERROR', 'Validation failed: text exceeds Polly SynthesizeSpeech character limit', context, {
+          objectKey,
+          textLength: textContent.length,
+          maxLength: MAX_POLLY_TEXT_LENGTH,
+        });
+        throw new Error(
+          `Validation failed: text length ${textContent.length} characters exceeds Polly SynthesizeSpeech limit of ${MAX_POLLY_TEXT_LENGTH} characters`
+        );
+      }
 
       const pollyResponse = await pollyClient.send(new SynthesizeSpeechCommand({
         Engine: 'neural',
