@@ -14,7 +14,7 @@ The following resources are deployed in the CDK stack today:
 | **Step Functions State Machine** | `SleepAudioPipelineStateMachine` | Orchestrates the audio processing pipeline. Triggered by EventBridge on new audio uploads. CloudWatch logging enabled (level ALL). |
 | **Polly Task State** | `Synthesize Speech` | Invokes Amazon Polly `StartSpeechSynthesisTask` to synthesize speech (voice: Joanna, format: MP3). Output written to the S3 Output Bucket. |
 | **Validate Input (Choice)** | `Validate Input` | Choice state that fast-fails clearly invalid inputs. Checks: bucket name presence, object key presence, and file extension is a supported audio format (.wav, .mp3, .flac, .ogg). Invalid inputs route directly to the failure path. |
-| **Lambda Function** | `SleepAudioProcessor` | Audio processing with input validation (Node.js 22.x, 256MB memory, 30s timeout). Validates bucket name, object key, and file extension at runtime. Logs input and returns processing status. Has read/write access to the DynamoDB Metadata Table. Environment variables: TABLE_NAME, INPUT_BUCKET_NAME, OUTPUT_BUCKET_NAME. |
+| **Lambda Function** | `SleepAudioProcessor` | Audio processing function (Node.js 22.x, 512MB memory, 120s timeout). Downloads input from S3, detects input type (text vs audio), synthesizes speech via Polly for text inputs or passes through audio files, uploads processed output to S3 Output Bucket, and updates DynamoDB metadata. Has S3 read access on input bucket, S3 write access on output bucket, polly:SynthesizeSpeech permission, and read/write access to the DynamoDB Metadata Table. Environment variables: TABLE_NAME, INPUT_BUCKET_NAME, OUTPUT_BUCKET_NAME. |
 | **CDK Pipeline** | `PipelineStack` | Optional CDK Pipelines construct for CI/CD. Uses CodePipeline with a GitHub connection source and ShellStep synth. Deploys CdkBaseStack via a stage. Enabled via `--context enablePipeline=true`. |
 | **DynamoDB Metadata Table** | `SleepAudioMetadataTable` | Stores audio pipeline metadata. Partition key: `audioId` (String). On-demand billing, AWS-managed encryption, point-in-time recovery enabled. |
 | **SNS Completed Topic** | `PipelineCompletedTopic` | Publishes notification on successful pipeline completion. KMS-encrypted (aws/sns managed key). |
@@ -32,6 +32,24 @@ flowchart TD
     WriteMetadata --> ValidateInput{Validate Input}
     ValidateInput -->|Valid| ProcessAudio[Lambda: Process Audio]
     ValidateInput -->|Invalid| MarkFailed[DynamoDB: Mark Failed]
+
+    %% Lambda internal processing steps
+    subgraph ProcessAudio[Lambda: Process Audio]
+        direction TB
+        DownloadS3[Download from S3 Input Bucket]
+        DetectType{Detect Input Type}
+        PollySynth[Polly: SynthesizeSpeech\nNeural engine, Joanna voice, MP3]
+        AudioPassthrough[Audio Passthrough\nRead audio bytes directly]
+        UploadS3[Upload to S3 Output Bucket\nprocessed/name-timestamp.mp3]
+        UpdateDDB[Update DynamoDB Metadata\nstatus=COMPLETED, outputKey, fileSize]
+        DownloadS3 --> DetectType
+        DetectType -->|.txt file| PollySynth
+        DetectType -->|.mp3/.wav/.flac/.ogg| AudioPassthrough
+        PollySynth --> UploadS3
+        AudioPassthrough --> UploadS3
+        UploadS3 --> UpdateDDB
+    end
+
     ProcessAudio -->|Retry on failure| ProcessAudio
     ProcessAudio -->|Success| PollyTask[Polly: StartSpeechSynthesisTask]
     ProcessAudio -->|Error| MarkFailed
@@ -46,12 +64,14 @@ flowchart TD
     WriteMetadata --> DDB[(DynamoDB Metadata Table)]
     UpdateStatus --> DDB
     MarkFailed --> DDB
-    ProcessAudio --> DDB
+    UpdateDDB --> DDB
     NotifySuccess --> SNSCompleted[SNS Completed Topic]
     NotifyFailure --> SNSFailed[SNS Failed Topic]
     SNSCompleted --> Subscribers([Subscribers])
     SNSFailed --> Subscribers
     PollyTask --> S3Output[S3 Output Bucket]
+    UploadS3 --> S3Output
+    DownloadS3 -.-> S3Input
     XRay[AWS X-Ray] -.->|Traces| SFN
     XRay -.->|Traces| ProcessAudio
     CWAlarms[CloudWatch Alarms] -.->|Monitors| SFN
@@ -66,7 +86,7 @@ The **Step Functions state machine** (`SleepAudioPipelineStateMachine`) serves a
 
 1. **Write Metadata** - Writes initial metadata record to DynamoDB (audioId, status=PROCESSING, inputBucket, inputKey, createdAt).
 2. **Validate Input** (Choice) - Fast-fail validation that checks: (a) `detail.bucket.name` is present, (b) `detail.object.key` is present, (c) file extension matches a supported audio format (.wav, .mp3, .flac, .ogg). If any check fails, routes directly to the Mark Failed state.
-3. **Process Audio** - Invokes the `SleepAudioProcessor` Lambda function via `LambdaInvoke`. Performs runtime input validation (bucket name, object key, file extension) and returns a processing status. Has read/write access to the DynamoDB Metadata Table. On failure, catches the error and transitions to the Mark Failed state.
+3. **Process Audio** - Invokes the `SleepAudioProcessor` Lambda function via `LambdaInvoke`. Performs full audio processing: downloads input from S3, detects input type, synthesizes speech via Polly (for text) or passes through audio data, uploads processed output to S3 Output Bucket, and updates DynamoDB metadata with output location and status. On failure, catches the error and transitions to the Mark Failed state.
 4. **Synthesize Speech** - Invokes Amazon Polly `StartSpeechSynthesisTask` with configurable parameters (text from event input, voice: Joanna, format: MP3). The synthesized audio is written to the S3 Output Bucket. On failure, catches the error and transitions to the Mark Failed state.
 5. **Update Status** - Updates the DynamoDB record status to COMPLETED with updatedAt timestamp.
 6. **Notify Success** - Publishes a success notification to the SNS Completed topic (includes audioId and completion timestamp).
@@ -118,7 +138,7 @@ The pipeline employs a two-layer validation strategy:
 
 **Security:**
 - The state machine execution role follows least-privilege principles with permissions scoped to `polly:StartSpeechSynthesisTask`, `s3:PutObject` on the output bucket, `lambda:InvokeFunction` on the SleepAudioProcessor, and DynamoDB operations on the metadata table only.
-- The Lambda execution role has read/write access to the DynamoDB Metadata Table, CloudWatch Logs permissions for observability, and X-Ray tracing permissions.
+- The Lambda execution role has S3 read access on the input bucket, S3 write access on the output bucket, polly:SynthesizeSpeech permission, read/write access to the DynamoDB Metadata Table, CloudWatch Logs permissions for observability, and X-Ray tracing permissions.
 - CloudWatch logging is enabled at level ALL with execution data included for full observability.
 
 ### Observability
@@ -144,6 +164,54 @@ The pipeline implements comprehensive observability through multiple layers:
 Both alarms use Sum statistic with GreaterThanOrEqualToThreshold comparison, triggering when at least one failure occurs within a 5-minute evaluation window. Both alarms are wired to the `PipelineFailedTopic` SNS topic via alarm actions, ensuring operators are notified when alarms fire.
 
 **Future states** (to be added in subsequent features): Bedrock audio enhancement and metadata extraction.
+
+## Audio Processing Logic
+
+The `SleepAudioProcessor` Lambda function performs the core audio processing within the pipeline. It handles the full lifecycle from downloading input to storing processed output and updating metadata.
+
+### Processing Steps
+
+1. **S3 Download** - The Lambda downloads the input file from the S3 Input Bucket using the bucket name and object key provided in the event payload.
+2. **Input Type Detection** - The file extension determines the processing path:
+   - `.txt` files are treated as text prompts for speech synthesis
+   - `.mp3`, `.wav`, `.flac`, `.ogg` files are treated as audio for passthrough processing
+3. **Processing**:
+   - **Text input (Polly synthesis)** - For `.txt` files, the Lambda calls Amazon Polly `SynthesizeSpeech` with the neural engine, Joanna voice, and MP3 output format. The text content of the file is converted into natural-sounding speech audio.
+   - **Audio input (passthrough)** - For audio files, the Lambda reads the raw audio bytes and passes them through directly. This path serves as a placeholder for future audio DSP enhancements (normalization, mixing, effects).
+4. **S3 Upload** - The processed audio output is uploaded to the S3 Output Bucket with the naming convention: `processed/<original-key-without-extension>-<timestamp>.mp3`
+5. **DynamoDB Metadata Update** - The Lambda updates the metadata record with the following fields:
+   - `status` = `COMPLETED`
+   - `outputBucket` - the name of the S3 Output Bucket
+   - `outputKey` - S3 URI of the processed output file
+   - `fileSize` - size of the processed output in bytes
+   - `processedAt` - ISO 8601 timestamp of processing completion
+
+### Output Artifacts
+
+| Artifact | Location | Format |
+|----------|----------|--------|
+| Processed audio file | `s3://<output-bucket>/processed/<name>-<timestamp>.mp3` | MP3 |
+| Metadata record | DynamoDB Metadata Table (keyed by `audioId`) | JSON attributes |
+
+### Lambda Configuration
+
+| Setting | Value | Rationale |
+|---------|-------|-----------|
+| Runtime | Node.js 22.x | Latest LTS with built-in AWS SDK v3 |
+| Memory | 512MB | Sufficient for audio file buffering and Polly responses |
+| Timeout | 120s | Allows time for S3 transfers and Polly synthesis of longer texts |
+| Tracing | AWS X-Ray (active) | End-to-end performance visibility |
+
+### IAM Permissions
+
+| Permission | Scope | Purpose |
+|------------|-------|---------|
+| S3 read | Input Bucket | Download input files for processing |
+| S3 write | Output Bucket | Upload processed audio output |
+| polly:SynthesizeSpeech | All resources | Synthesize speech from text prompts |
+| DynamoDB read/write | Metadata Table | Update processing status and output metadata |
+| CloudWatch Logs | Log group | Emit structured logs |
+| X-Ray | Tracing | Publish trace segments |
 
 ## Notification Layer
 
