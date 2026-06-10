@@ -1,0 +1,28 @@
+{
+  "id": "FEAT-002",
+  "type": "docs",
+  "description": "Update ARCHITECTURE.md to reflect the now-functional audio processing pipeline. Refine the Mermaid diagram to accurately show the Lambda's real processing steps (S3 download, input type detection, Polly synthesis or audio passthrough, S3 upload, DynamoDB metadata update). Add or expand a section describing the processing steps and output artifacts.",
+  "status": "completed",
+  "steps": [
+    "Read the current ARCHITECTURE.md to understand existing structure and the 'Currently Implemented' section.",
+    "Update the 'Currently Implemented' table to reflect the enhanced Lambda: now does real S3 operations, Polly synthesis, and DynamoDB metadata updates. Update memory to 512MB and timeout to 120s.",
+    "Refine the 'Implemented Architecture Diagram' Mermaid flowchart to show the Lambda's internal processing steps: S3 Download -> Input Type Detection -> Polly Synthesis (text) or Audio Processing (audio) -> S3 Upload -> DynamoDB Update.",
+    "Add a new section 'Audio Processing Logic' (or expand existing placeholder) describing: input type detection (text vs audio), Polly synthesis for text prompts (neural engine, Joanna voice, MP3 output), audio passthrough/normalization for audio files, output naming convention (processed/<key>-<timestamp>.mp3), and DynamoDB metadata fields updated (status, outputBucket, outputKey, fileSize, processedAt).",
+    "Update the 'Orchestration Layer' section to note that the Lambda now performs real processing rather than being a placeholder/skeleton.",
+    "Ensure no em dashes are used in the document. Use regular hyphens or commas instead.",
+    "Run `unset NODE_OPTIONS && npx jest --passWithNoTests` and `unset NODE_OPTIONS && npx cdk synth` to confirm nothing broke."
+  ],
+  "acceptance_criteria": [
+    "ARCHITECTURE.md 'Currently Implemented' table reflects real Lambda capabilities (S3 read/write, Polly synthesis, DynamoDB update, 512MB/120s)",
+    "Mermaid diagram shows Lambda internal processing flow (download -> detect type -> process/synthesize -> upload -> update DB)",
+    "New 'Audio Processing Logic' section documents input type detection, Polly synthesis, output naming, and DynamoDB fields",
+    "No em dashes in the document",
+    "Tests and cdk synth still pass"
+  ],
+  "verification": [
+    "Run `unset NODE_OPTIONS && npx jest --passWithNoTests` - all tests pass",
+    "Run `unset NODE_OPTIONS && npx cdk synth` - synthesizes successfully"
+  ],
+  "blocked_reason": null,
+  "findings": "Updated ARCHITECTURE.md: Lambda table row now shows 512MB/120s with real processing capabilities, Mermaid diagram includes subgraph showing Lambda internal steps (S3 download, type detection, Polly synthesis or audio passthrough, S3 upload, DynamoDB update), new Audio Processing Logic section added with processing steps, output artifacts, Lambda configuration, and IAM permissions tables. Orchestration Layer section updated to describe real processing instead of placeholder. All 104 tests pass, cdk synth succeeds."
+}
