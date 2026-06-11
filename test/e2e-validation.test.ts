@@ -65,11 +65,25 @@ describe('E2E Pipeline Validation', () => {
         // Write Metadata -> Validate Input (Next)
         expect(definitionJson.States['Write Metadata'].Next).toBe('Validate Input');
 
-        // Validate Input is a Choice state; when valid, routes to Process Audio
+        // Validate Input is a Choice state; when valid, routes to Process Audio.
+        // We find the rule by its composite structure (And conditions with bucket.name
+        // IsPresent, object.key IsPresent, and StringMatches for extensions) rather than
+        // by array index, so the test is resilient to future rule reordering.
         expect(definitionJson.States['Validate Input'].Type).toBe('Choice');
         const rules = definitionJson.States['Validate Input'].Choices;
         expect(rules.length).toBeGreaterThan(0);
-        expect(rules[0].Next).toBe('Process Audio');
+        const validInputRule = rules.find((rule: any) => {
+          if (!rule.And || !Array.isArray(rule.And)) return false;
+          const conditionsStr = JSON.stringify(rule.And);
+          return (
+            conditionsStr.includes('$.detail.bucket.name') &&
+            conditionsStr.includes('$.detail.object.key') &&
+            conditionsStr.includes('IsPresent') &&
+            conditionsStr.includes('StringMatches')
+          );
+        });
+        expect(validInputRule).toBeDefined();
+        expect(validInputRule.Next).toBe('Process Audio');
 
         // Process Audio -> Synthesize Speech
         expect(definitionJson.States['Process Audio'].Next).toBe('Synthesize Speech');
@@ -442,6 +456,13 @@ describe('E2E Pipeline Validation', () => {
   });
 
   describe('Input Validation', () => {
+    // NOTE: .txt files are NOT validated at the state machine Choice level. Only .wav,
+    // .mp3, .flac, and .ogg are accepted by the Choice state's StringMatches conditions.
+    // The .txt handling is purely within the Lambda function, which processes text prompts
+    // via Polly SynthesizeSpeech. This is intentional behavior documented in ARCHITECTURE.md
+    // -- the state machine validates audio-specific inputs, while the Lambda provides
+    // extended format support for text-to-speech synthesis.
+
     test('Validate Input is a Choice state', () => {
       expect(definitionJson.States['Validate Input'].Type).toBe('Choice');
     });
@@ -509,7 +530,20 @@ describe('E2E Pipeline Validation', () => {
     test('valid inputs proceed to Process Audio', () => {
       const choiceState = definitionJson.States['Validate Input'];
       const rules = choiceState.Choices;
-      expect(rules[0].Next).toBe('Process Audio');
+      // Match by composite rule structure (And conditions) rather than array index
+      // to be resilient to future rule reordering.
+      const validInputRule = rules.find((rule: any) => {
+        if (!rule.And || !Array.isArray(rule.And)) return false;
+        const conditionsStr = JSON.stringify(rule.And);
+        return (
+          conditionsStr.includes('$.detail.bucket.name') &&
+          conditionsStr.includes('$.detail.object.key') &&
+          conditionsStr.includes('IsPresent') &&
+          conditionsStr.includes('StringMatches')
+        );
+      });
+      expect(validInputRule).toBeDefined();
+      expect(validInputRule.Next).toBe('Process Audio');
     });
 
     test('Set Validation Error injects errorInfo and routes to Mark Failed', () => {
@@ -635,6 +669,14 @@ describe('E2E Pipeline Validation', () => {
   });
 
   describe('Lambda Processing Cycle Validation', () => {
+    // NOTE: These tests intentionally duplicate some coverage from audio-processor.test.ts
+    // to provide a self-contained end-to-end validation perspective. The purpose of this
+    // section is to validate the Lambda's processing cycle as part of a comprehensive,
+    // standalone pipeline validation document. The full Lambda unit test suite in
+    // audio-processor.test.ts is the canonical source for Lambda behavior tests -- if
+    // the Lambda's SDK usage changes, update audio-processor.test.ts first, then align
+    // these e2e tests accordingly.
+
     // These tests validate the Lambda function's complete processing cycle
     // using the same mock pattern as audio-processor.test.ts
     const mockS3Send = jest.fn();
