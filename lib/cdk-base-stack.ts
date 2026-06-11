@@ -153,13 +153,13 @@ export class CdkBaseStack extends cdk.Stack {
       resultPath: '$.errorInfo',
     });
 
-    // Lambda function for audio processing (placeholder for future logic)
+    // Lambda function for audio processing
     const audioProcessorFunction = new lambda.Function(this, 'SleepAudioProcessor', {
       runtime: lambda.Runtime.NODEJS_22_X,
       handler: 'index.handler',
       code: lambda.Code.fromAsset('lambda/audio-processor'),
-      memorySize: 256,
-      timeout: cdk.Duration.seconds(30),
+      memorySize: 512,
+      timeout: cdk.Duration.seconds(120),
       tracing: lambda.Tracing.ACTIVE,
       environment: {
         TABLE_NAME: metadataTable.tableName,
@@ -170,6 +170,18 @@ export class CdkBaseStack extends cdk.Stack {
 
     // Grant the Lambda read/write access to the DynamoDB metadata table
     metadataTable.grantReadWriteData(audioProcessorFunction);
+
+    // Grant the Lambda read access to the input bucket
+    inputBucket.grantRead(audioProcessorFunction);
+
+    // Grant the Lambda write access to the output bucket
+    outputBucket.grantWrite(audioProcessorFunction);
+
+    // Grant the Lambda permission to synthesize speech with Polly
+    audioProcessorFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['polly:SynthesizeSpeech'],
+      resources: ['*'],
+    }));
 
     // Define the Process Audio task using LambdaInvoke
     const processAudioTask = new tasks.LambdaInvoke(this, 'Process Audio', {

@@ -855,7 +855,7 @@ def sort_filter_rules(json_obj):
           "S3Bucket": {
             "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-\${AWS::Region}",
           },
-          "S3Key": "4e0565d886dc511ab331318cc2b7be031fe830af76b548630ec3cf70a633bb75.zip",
+          "S3Key": "d20ba611944f18fe92fa771d1760159636de6f5595932fdf235f0fccbeb363e4.zip",
         },
         "Environment": {
           "Variables": {
@@ -871,7 +871,7 @@ def sort_filter_rules(json_obj):
           },
         },
         "Handler": "index.handler",
-        "MemorySize": 256,
+        "MemorySize": 512,
         "Role": {
           "Fn::GetAtt": [
             "SleepAudioProcessorServiceRoleC3DA27F3",
@@ -885,7 +885,7 @@ def sort_filter_rules(json_obj):
             "Value": "dev",
           },
         ],
-        "Timeout": 30,
+        "Timeout": 120,
         "TracingConfig": {
           "Mode": "Active",
         },
@@ -978,6 +978,75 @@ def sort_filter_rules(json_obj):
                   ],
                 },
               ],
+            },
+            {
+              "Action": [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*",
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "SleepAudioInputBucket1923DAE4",
+                    "Arn",
+                  ],
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "SleepAudioInputBucket1923DAE4",
+                          "Arn",
+                        ],
+                      },
+                      "/*",
+                    ],
+                  ],
+                },
+              ],
+            },
+            {
+              "Action": [
+                "s3:DeleteObject*",
+                "s3:PutObject",
+                "s3:PutObjectLegalHold",
+                "s3:PutObjectRetention",
+                "s3:PutObjectTagging",
+                "s3:PutObjectVersionTagging",
+                "s3:Abort*",
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "SleepAudioOutputBucketBD13D91D",
+                    "Arn",
+                  ],
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "SleepAudioOutputBucketBD13D91D",
+                          "Arn",
+                        ],
+                      },
+                      "/*",
+                    ],
+                  ],
+                },
+              ],
+            },
+            {
+              "Action": "polly:SynthesizeSpeech",
+              "Effect": "Allow",
+              "Resource": "*",
             },
           ],
           "Version": "2012-10-17",

@@ -553,6 +553,59 @@ describe('CdkBaseStack', () => {
       });
     });
 
+    test('Lambda execution role has S3 read permissions on input bucket', () => {
+      template.hasResourceProperties('AWS::IAM::Policy', {
+        PolicyDocument: Match.objectLike({
+          Statement: Match.arrayWith([
+            Match.objectLike({
+              Action: Match.arrayWith([
+                's3:GetObject*',
+                's3:GetBucket*',
+                's3:List*',
+              ]),
+              Effect: 'Allow',
+            }),
+          ]),
+        }),
+      });
+    });
+
+    test('Lambda execution role has S3 write permissions on output bucket', () => {
+      template.hasResourceProperties('AWS::IAM::Policy', {
+        PolicyDocument: Match.objectLike({
+          Statement: Match.arrayWith([
+            Match.objectLike({
+              Action: Match.arrayWith([
+                's3:PutObject',
+              ]),
+              Effect: 'Allow',
+              Resource: Match.arrayWith([
+                Match.objectLike({
+                  'Fn::GetAtt': Match.arrayWith([
+                    Match.stringLikeRegexp('SleepAudioOutputBucket'),
+                  ]),
+                }),
+              ]),
+            }),
+          ]),
+        }),
+      });
+    });
+
+    test('Lambda execution role has polly:SynthesizeSpeech permission', () => {
+      template.hasResourceProperties('AWS::IAM::Policy', {
+        PolicyDocument: Match.objectLike({
+          Statement: Match.arrayWith([
+            Match.objectLike({
+              Action: 'polly:SynthesizeSpeech',
+              Effect: 'Allow',
+              Resource: '*',
+            }),
+          ]),
+        }),
+      });
+    });
+
     test('state machine definition includes a Process Audio LambdaInvoke task', () => {
       template.hasResourceProperties('AWS::StepFunctions::StateMachine', {
         DefinitionString: Match.objectLike({
@@ -752,7 +805,7 @@ describe('CdkBaseStack', () => {
         const statements = (policy as any).Properties.PolicyDocument.Statement;
         for (const stmt of statements) {
           const actions = Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action];
-          const isPolly = actions.includes('polly:StartSpeechSynthesisTask');
+          const isPolly = actions.includes('polly:StartSpeechSynthesisTask') || actions.includes('polly:SynthesizeSpeech');
           const isLogsDelivery = actions.some((a: string) => a.startsWith('logs:'));
           const isXRay = actions.some((a: string) => a.startsWith('xray:'));
 
@@ -838,15 +891,15 @@ describe('CdkBaseStack', () => {
       });
     });
 
-    test('Lambda memory is set to 256MB', () => {
+    test('Lambda memory is set to 512MB', () => {
       template.hasResourceProperties('AWS::Lambda::Function', {
-        MemorySize: 256,
+        MemorySize: 512,
       });
     });
 
-    test('Lambda timeout is set to 30 seconds', () => {
+    test('Lambda timeout is set to 120 seconds', () => {
       template.hasResourceProperties('AWS::Lambda::Function', {
-        Timeout: 30,
+        Timeout: 120,
       });
     });
   });

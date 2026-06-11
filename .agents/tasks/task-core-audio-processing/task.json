@@ -1,0 +1,14 @@
+{
+  "task_id": "task-core-audio-processing",
+  "task_description": "Implement core audio processing logic and output handling in the Lambda function following strict TDD. Move from skeleton/placeholder to functional implementation that downloads input from S3, processes/generates audio via Polly, uploads output to S3, and updates DynamoDB metadata. Update CDK stack for proper IAM permissions and update ARCHITECTURE.md.",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null,
+  "verification": {
+    "build": "pass",
+    "tests": "pass",
+    "test_quality": "pass",
+    "docker_build": "skipped",
+    "summary": "All 109 tests pass (84 CDK + 25 Lambda unit tests). cdk synth succeeds. tsc --noEmit clean. Lambda tests exercise real code paths with comprehensive mocking of AWS SDK clients. Semantic review v2: APPROVED."
+  }
+}
