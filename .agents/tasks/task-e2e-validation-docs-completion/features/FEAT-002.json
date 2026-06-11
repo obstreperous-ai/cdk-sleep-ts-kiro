@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "docs",
   "description": "Polish all documentation (README.md, ARCHITECTURE.md, CONTRIBUTING.md) and create SUMMARY.md capturing key decisions, what was built, and experiment notes. Perform final code cleanup and consistency pass.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Rewrite README.md with: (a) clear project overview describing the event-driven sleep audio pipeline, (b) architecture summary with reference to ARCHITECTURE.md, (c) how to deploy/test locally (npm ci, npm test, npx cdk synth, npx cdk deploy), (d) usage instructions for triggering the pipeline (upload to S3 input bucket), (e) environment setup section (Node.js 22, npm, AWS CDK CLI), (f) multi-environment deployment instructions (dev/staging/prod context), (g) common troubleshooting section",
     "Update ARCHITECTURE.md: (a) remove the 'Status' note at the top since the system is now complete and implemented, (b) clean up the 'Currently Implemented' section to be the primary definitive section (not secondary to a 'target' design), (c) ensure the Mermaid diagram accurately reflects the actual implemented flow (it already does), (d) remove or consolidate the 'Target Architecture' section at the bottom since the actual implementation now supersedes it, (e) ensure consistency between the diagram and prose descriptions",
@@ -27,5 +27,5 @@
     "Verify README.md, ARCHITECTURE.md, CONTRIBUTING.md, and SUMMARY.md exist with expected content sections"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "All 196 tests pass. CDK synth succeeds. README.md rewritten with project overview, architecture summary, deployment/usage instructions, multi-environment guide, and troubleshooting. ARCHITECTURE.md cleaned to remove 'planned/target' language and consolidated as the definitive system description with Future Enhancements section. CONTRIBUTING.md extended with environment setup, snapshot guidance, and e2e test instructions. SUMMARY.md created with key decisions, component list, TDD summary, and experiment notes. No code changes were necessary - both cdk-base-stack.ts and lambda/audio-processor/index.ts are already clean and consistent."
 }
