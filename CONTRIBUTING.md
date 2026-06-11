@@ -1,5 +1,26 @@
 # Contributing
 
+## Environment Setup
+
+### Requirements
+
+- **Node.js 22** (LTS) - [Download](https://nodejs.org/)
+- **npm** (included with Node.js)
+- **AWS CDK CLI** (optional, for deployment): `npm install -g aws-cdk`
+
+### Getting Started
+
+```bash
+# Install dependencies
+npm ci
+
+# Run the test suite
+npm test
+
+# Verify CDK synthesis
+npx cdk synth --context environment=dev
+```
+
 ## Commit Messages
 
 This project follows [Conventional Commits](https://www.conventionalcommits.org/). All commit messages must use one of the following prefixes:
@@ -29,13 +50,58 @@ This project follows strict Test-Driven Development. Every code change must foll
 
 Never push code without a corresponding test that was written before the implementation.
 
+## Running Tests
+
+### Unit Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run tests for a specific file
+npx jest test/cdk-base.test.ts
+
+# Run tests with verbose output
+npx jest --verbose
+```
+
+### End-to-End Validation Tests
+
+The project includes comprehensive end-to-end validation tests that verify the complete pipeline flow by parsing the synthesized state machine definition:
+
+```bash
+npx jest test/e2e-validation.test.ts
+```
+
+These tests validate:
+- Full happy path from S3 input through SNS success notification
+- All error scenarios routing to Mark Failed -> Notify Failure -> Pipeline Failed
+- Retry configuration for all retryable tasks
+- Input validation rejection for invalid inputs
+- DynamoDB metadata fields for both success and failure
+- SNS notification payloads
+
+### Snapshot Tests
+
+The project uses a CDK snapshot test (`test/__snapshots__/cdk-base.test.ts.snap`) that captures the full synthesized CloudFormation template. This catches unintended infrastructure drift.
+
+**When to update the snapshot:**
+
+Update the snapshot when you have intentionally changed CDK infrastructure (added/removed/modified resources):
+
+```bash
+npx jest --no-coverage -u
+```
+
+Do **not** update the snapshot to suppress failures from unintentional changes. If the snapshot test fails unexpectedly, review the diff to understand what changed and why.
+
 ## CDK Guidance
 
 - **Prefer L2 and L3 constructs** over L1 (Cfn*) constructs. L2/L3 constructs provide sensible defaults and best-practice configurations.
 - **Always run tests and synth before pushing**:
   ```bash
   npm test
-  npx cdk synth
+  npx cdk synth --context environment=dev
   ```
 - Keep constructs small and focused. Each construct should represent a single logical resource group.
 - Follow AWS Well-Architected principles: least privilege IAM, encryption at rest, monitoring.
@@ -68,3 +134,14 @@ If you are unsure whether your change requires an architecture doc update, err o
 4. Open a pull request with a clear description of the change.
 5. CI must pass before merging.
 6. Squash merge into `main`.
+
+## CI Pipeline
+
+The GitHub Actions CI workflow (`.github/workflows/ci.yml`) runs on every pull request:
+
+1. `npm ci` - Install dependencies
+2. `npm test` - Run the full test suite
+3. `npx cdk synth` - Verify CloudFormation synthesis
+4. `npx cdk diff` - Show infrastructure diff (non-blocking)
+
+All steps except `cdk diff` must pass for the PR to be mergeable.

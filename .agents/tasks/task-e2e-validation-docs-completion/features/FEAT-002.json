@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "docs",
   "description": "Polish all documentation (README.md, ARCHITECTURE.md, CONTRIBUTING.md) and create SUMMARY.md capturing key decisions, what was built, and experiment notes. Perform final code cleanup and consistency pass.",
-  "status": "pending",
+  "status": "in_progress",
   "steps": [
     "Rewrite README.md with: (a) clear project overview describing the event-driven sleep audio pipeline, (b) architecture summary with reference to ARCHITECTURE.md, (c) how to deploy/test locally (npm ci, npm test, npx cdk synth, npx cdk deploy), (d) usage instructions for triggering the pipeline (upload to S3 input bucket), (e) environment setup section (Node.js 22, npm, AWS CDK CLI), (f) multi-environment deployment instructions (dev/staging/prod context), (g) common troubleshooting section",
     "Update ARCHITECTURE.md: (a) remove the 'Status' note at the top since the system is now complete and implemented, (b) clean up the 'Currently Implemented' section to be the primary definitive section (not secondary to a 'target' design), (c) ensure the Mermaid diagram accurately reflects the actual implemented flow (it already does), (d) remove or consolidate the 'Target Architecture' section at the bottom since the actual implementation now supersedes it, (e) ensure consistency between the diagram and prose descriptions",
