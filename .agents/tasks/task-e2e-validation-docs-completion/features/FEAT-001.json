@@ -1,0 +1,35 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Add end-to-end validation test suite covering the complete pipeline flow from S3 upload through final output, including happy path validation, error handling scenarios, and retry behavior verification",
+  "status": "in_progress",
+  "steps": [
+    "Create a new test file `test/e2e-validation.test.ts` that validates the complete pipeline end-to-end",
+    "Write tests verifying the full happy path: S3 upload -> EventBridge -> StepFunctions -> Lambda -> Polly -> DynamoDB -> SNS. Validate by parsing the state machine definition and confirming: (a) all states are present and connected in proper sequence, (b) each task has correct input/output paths, (c) DynamoDB metadata records are written with correct fields for both initial write and final update, (d) SNS notifications are published on both success and failure paths",
+    "Write tests for error handling validation: (a) Lambda error routes to Mark Failed -> Notify Failure -> Pipeline Failed, (b) Polly error routes to same failure path, (c) Write Metadata error routes to failure path, (d) Update Status error routes to failure path, (e) all error paths inject $.errorInfo with Error and Cause fields",
+    "Write tests for retry behavior validation: (a) Process Audio retries on States.TaskFailed, Lambda.ServiceException, Lambda.SdkClientException with 3 max attempts, (b) Polly retries on States.TaskFailed with 2 max attempts, (c) Write Metadata retries on States.ALL with 3 max attempts, (d) Update Status retries on States.ALL with 3 max attempts, (e) all retries use exponential backoff with correct intervals",
+    "Write tests for input validation rejection: (a) missing bucket.name triggers failure path, (b) missing object.key triggers failure path, (c) unsupported file extension triggers failure path, (d) valid extensions (.wav, .mp3, .flac, .ogg) proceed to processing",
+    "Write tests validating that DynamoDB metadata record includes correct fields: audioId, status, inputBucket, inputKey, createdAt for initial write, and status=COMPLETED + updatedAt for update status",
+    "Write tests validating SNS notifications: success notification contains pipelineStatus=COMPLETED, audioId, completedAt; failure notification contains pipelineStatus=FAILED, audioId, failedAt, error, cause",
+    "Write tests validating the Lambda function's complete processing cycle for both text input and audio input scenarios, confirming output file is in correct S3 output bucket with correct naming convention (processed/<name>-<timestamp>.mp3)",
+    "Run tests to confirm they all pass. The existing infrastructure already satisfies these requirements, so tests should pass immediately (validating existing behavior)."
+  ],
+  "acceptance_criteria": [
+    "New test file `test/e2e-validation.test.ts` exists with comprehensive end-to-end validation tests",
+    "Tests validate the complete happy path from S3 input to SNS success notification",
+    "Tests validate all error scenarios route to Mark Failed -> Notify Failure -> Pipeline Failed",
+    "Tests validate retry configuration for all retryable tasks",
+    "Tests validate input rejection for invalid inputs",
+    "Tests validate DynamoDB metadata fields for both success and failure",
+    "Tests validate SNS notification payloads for both success and failure",
+    "All tests pass with `unset NODE_OPTIONS && npx jest --no-coverage`",
+    "cdk synth still succeeds"
+  ],
+  "verification": [
+    "Run `unset NODE_OPTIONS && npx jest --no-coverage test/e2e-validation.test.ts` and confirm all tests pass",
+    "Run `unset NODE_OPTIONS && npx jest --no-coverage` and confirm all existing tests still pass (no regressions)",
+    "Run `unset NODE_OPTIONS && npx cdk synth --context environment=dev` and confirm synthesis succeeds"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
