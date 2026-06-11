@@ -2,7 +2,7 @@
   "id": "FEAT-001",
   "type": "feat",
   "description": "Add end-to-end validation test suite covering the complete pipeline flow from S3 upload through final output, including happy path validation, error handling scenarios, and retry behavior verification",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Create a new test file `test/e2e-validation.test.ts` that validates the complete pipeline end-to-end",
     "Write tests verifying the full happy path: S3 upload -> EventBridge -> StepFunctions -> Lambda -> Polly -> DynamoDB -> SNS. Validate by parsing the state machine definition and confirming: (a) all states are present and connected in proper sequence, (b) each task has correct input/output paths, (c) DynamoDB metadata records are written with correct fields for both initial write and final update, (d) SNS notifications are published on both success and failure paths",
@@ -31,5 +31,5 @@
     "Run `unset NODE_OPTIONS && npx cdk synth --context environment=dev` and confirm synthesis succeeds"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "JSON parsing of state machine definition requires replacing dynamic Ref/Fn::GetAtt objects with plain string 'DYNAMIC_REF' (no quotes) since the surrounding string fragments already include the JSON quotes. DynamoDB PutItem parameters use 'S.$' key notation for JsonPath references. SNS Message parameters use nested object structure (not Message.$ string)."
 }
