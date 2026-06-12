@@ -1,0 +1,31 @@
+{
+  "id": "FEAT-002",
+  "type": "docs",
+  "description": "Polish all documentation (README.md, ARCHITECTURE.md, CONTRIBUTING.md) and create SUMMARY.md capturing key decisions, what was built, and experiment notes. Perform final code cleanup and consistency pass.",
+  "status": "completed",
+  "steps": [
+    "Rewrite README.md with: (a) clear project overview describing the event-driven sleep audio pipeline, (b) architecture summary with reference to ARCHITECTURE.md, (c) how to deploy/test locally (npm ci, npm test, npx cdk synth, npx cdk deploy), (d) usage instructions for triggering the pipeline (upload to S3 input bucket), (e) environment setup section (Node.js 22, npm, AWS CDK CLI), (f) multi-environment deployment instructions (dev/staging/prod context), (g) common troubleshooting section",
+    "Update ARCHITECTURE.md: (a) remove the 'Status' note at the top since the system is now complete and implemented, (b) clean up the 'Currently Implemented' section to be the primary definitive section (not secondary to a 'target' design), (c) ensure the Mermaid diagram accurately reflects the actual implemented flow (it already does), (d) remove or consolidate the 'Target Architecture' section at the bottom since the actual implementation now supersedes it, (e) ensure consistency between the diagram and prose descriptions",
+    "Update CONTRIBUTING.md to reflect the final state: (a) add environment setup requirements (Node.js 22, npm), (b) add section on running end-to-end validation tests, (c) ensure TDD workflow section is accurate and complete, (d) add a note about the snapshot test and when to update it",
+    "Create SUMMARY.md with: (a) project overview and purpose, (b) key architectural decisions made during development (serverless, event-driven, Step Functions orchestration, two-layer validation, SNS notifications), (c) what was built (complete list of components), (d) TDD approach summary, (e) potential future enhancements (Bedrock AI enhancement, audio DSP processing, multi-voice Polly support), (f) experiment notes useful for a final report",
+    "Perform code cleanup: (a) review lib/cdk-base-stack.ts for consistency in comments and formatting, (b) review lambda/audio-processor/index.ts for any cleanup, (c) ensure all files have consistent comment style, (d) check for any dead code or unused imports",
+    "Update the snapshot file by running jest -u if any infrastructure changes were made (likely not needed but verify)",
+    "Verify CI workflow (.github/workflows/ci.yml) is complete and covers all required steps (already checks npm ci, npm test, cdk synth, cdk diff)"
+  ],
+  "acceptance_criteria": [
+    "README.md has clear project overview, architecture summary, deployment instructions, usage guide, environment setup, and troubleshooting",
+    "ARCHITECTURE.md accurately describes the implemented system without 'planned'/'target' language for features that are complete",
+    "CONTRIBUTING.md reflects final project state with environment setup and snapshot guidance",
+    "SUMMARY.md exists with key decisions, component list, TDD summary, and future enhancement notes",
+    "Code is clean and consistent across all source files",
+    "All tests still pass after any changes",
+    "cdk synth still succeeds"
+  ],
+  "verification": [
+    "Run `unset NODE_OPTIONS && npx jest --no-coverage` and confirm all tests pass",
+    "Run `unset NODE_OPTIONS && npx cdk synth --context environment=dev` and confirm synthesis succeeds",
+    "Verify README.md, ARCHITECTURE.md, CONTRIBUTING.md, and SUMMARY.md exist with expected content sections"
+  ],
+  "blocked_reason": null,
+  "findings": "All 196 tests pass. CDK synth succeeds. README.md rewritten with project overview, architecture summary, deployment/usage instructions, multi-environment guide, and troubleshooting. ARCHITECTURE.md cleaned to remove 'planned/target' language and consolidated as the definitive system description with Future Enhancements section. CONTRIBUTING.md extended with environment setup, snapshot guidance, and e2e test instructions. SUMMARY.md created with key decisions, component list, TDD summary, and experiment notes. No code changes were necessary - both cdk-base-stack.ts and lambda/audio-processor/index.ts are already clean and consistent."
+}
