@@ -1,0 +1,24 @@
+{
+  "project_type": "AWS CDK TypeScript IaC project - event-driven sleep audio processing pipeline",
+  "language": "TypeScript",
+  "build_system": "npm with TypeScript compiler (tsc), AWS CDK CLI for synthesis",
+  "test_framework": "Jest with ts-jest transform, aws-cdk-lib/assertions for CDK tests, snapshot testing",
+  "build_command": "npx tsc",
+  "test_command": "unset NODE_OPTIONS && npx jest --no-coverage",
+  "verification_instructions": "1. Run `unset NODE_OPTIONS && npx jest --no-coverage` to verify all tests pass. 2. Run `npx cdk synth --context environment=dev` to verify CDK synthesis succeeds.",
+  "snapshot_or_generated_files": "test/__snapshots__/cdk-base.test.ts.snap - regenerate with `npx jest --no-coverage -u`",
+  "setup_instructions": "npm ci",
+  "environment_constraints": "COMMON_DEPENDENCIES network mode - can install from npm. No Docker daemon available for docker build. Must unset NODE_OPTIONS before running jest.",
+  "contribution_requirements": "Conventional commits required (feat:, fix:, chore:, docs:, refactor:). Strict TDD workflow. ARCHITECTURE.md must stay in sync with code. L2/L3 CDK constructs preferred.",
+  "key_patterns": "CDK stacks in lib/, Lambda code in lambda/, tests in test/, entry point in bin/cdk-base.ts. Uses CDK context for environment selection. Pipeline stack is optional via enablePipeline context flag.",
+  "relevant_files": [
+    "README.md",
+    "ARCHITECTURE.md",
+    "CONTRIBUTING.md",
+    "SUMMARY.md",
+    ".github/AGENT_GUIDELINES.md",
+    "package.json",
+    ".github/workflows/ci.yml"
+  ],
+  "directory_structure": "bin/ (CDK app entry), lib/ (stack definitions), lambda/audio-processor/ (Lambda handler), test/ (Jest tests with snapshots), .github/ (CI + agent guidelines)"
+}
