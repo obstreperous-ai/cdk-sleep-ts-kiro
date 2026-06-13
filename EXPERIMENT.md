@@ -28,7 +28,7 @@ This experiment uses a factorial design: **5 language/framework variants** cross
 
 | Dimension | Variants |
 |-----------|----------|
-| **Languages** | TypeScript (CDK), Python (CDK), Go (CDK), Java (CDK), and one additional variant |
+| **Languages** | TypeScript (CDK), Python (CDK), Go (CDK), Java (CDK), and one additional variant (to be selected) |
 | **AI Agents** | Kiro, and two other AI coding agents |
 
 Each cell operates independently: same requirements, same TDD discipline, same issue-driven workflow. Differences in output reveal how language choice and agent capability interact.
@@ -136,7 +136,7 @@ Fix cycles addressed review findings before merging, maintaining quality through
 |------|---------|
 | AWS CDK 2.252.0 | Infrastructure-as-code framework |
 | TypeScript 5.9 | Programming language |
-| Jest | Test framework |
+| Jest 30 | Test framework (with aws-cdk-lib/assertions) |
 | Node.js 22 | Runtime |
 | GitHub Actions | CI pipeline |
 | Conventional Commits | Commit discipline |
