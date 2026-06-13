@@ -2,7 +2,7 @@
   "id": "FEAT-001",
   "type": "docs",
   "description": "Create comprehensive EXPERIMENT.md document capturing the experimental design, methodology, actors, meta-prompting strategy, issue history, and observations from this TDD IaC project. Then link it prominently from README.md.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Create EXPERIMENT.md at the repository root with the following sections: Overview & Goals, Experimental Setup (5 languages x 3 AIs matrix), Methodology (TDD, issue-driven development, architecture-as-code with Mermaid), Actors & Setup (Kiro + TypeScript flavor, obstreperous-ai as project owner), Prompting Patterns & Meta-Prompts (reference META-PROMPTS.md, describe the 5-discipline framework, discipline blocks in issues), Issue History Summary (table of all 14 issues with their GitHub numbers, titles, key outcomes, test counts, and merge dates), Key Decisions & Trade-offs (serverless event-driven, Step Functions orchestration, two-layer validation, SNS dual topics, exponential backoff, X-Ray tracing), and Preliminary Observations (strengths, challenges, testing insights, architecture fitness).",
     "The document should be comprehensive, objective, and serve as a foundation for final evaluation of the experiment. Use data from the merged PRs: 12 PRs merged over June 1-13 2026, 196 tests produced, 100% resource coverage, conventional commits throughout.",
@@ -25,5 +25,5 @@
     "Verify README.md contains a link to EXPERIMENT.md"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "Pre-existing snapshot test failure in test/cdk-base.test.ts (1 snapshot failed) - not caused by documentation changes. All other 195 tests pass. TypeScript compiles cleanly. CDK synth succeeds. Dependencies required npm ci to install (shallow clone did not include node_modules)."
 }
