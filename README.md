@@ -15,6 +15,7 @@ An AWS CDK TypeScript project implementing an event-driven sleep audio processin
 
 - [Architecture Overview](#architecture-overview)
 - [Experiment Methodology](#experiment-methodology)
+- [Experiment Design Document](#experiment-design-document)
 - [Meta-Prompting & Agent Guidelines](#meta-prompting--agent-guidelines)
 - [Environment Setup](#environment-setup)
 - [Development](#development)
@@ -85,6 +86,21 @@ Each issue assumed the previous issue's work was complete and tested. This incre
 - Each new feature built on a verified, working foundation
 - Regressions were caught immediately by the existing test suite
 - The architecture grew organically from simple to complex
+
+For the full experiment design, methodology details, issue history, and preliminary observations, see [EXPERIMENT.md](./EXPERIMENT.md).
+
+## Experiment Design Document
+
+This project is one cell in a **5-language x 3-AI experimental matrix** evaluating how AI coding agents perform when building production-quality cloud infrastructure under strict methodological constraints.
+
+[EXPERIMENT.md](./EXPERIMENT.md) captures the complete experimental design including:
+- Experimental setup and research questions
+- Detailed methodology (TDD, issue-driven development, architecture-as-code)
+- Actor and toolchain documentation
+- Prompting patterns and the 5-discipline meta-prompting framework
+- Full issue history with test growth trajectory
+- Key architectural decisions and trade-offs
+- Preliminary observations on strengths, challenges, and agent behavior
 
 ## Meta-Prompting & Agent Guidelines
 
