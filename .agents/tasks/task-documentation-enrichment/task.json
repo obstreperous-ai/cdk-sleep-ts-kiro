@@ -1,0 +1,7 @@
+{
+  "task_id": "task-documentation-enrichment",
+  "task_description": "Enrich README.md to professional standard with badges, ToC, experiment methodology, and meta-prompting sections. Create META-PROMPTS.md with extracted reusable agent patterns. Expand AGENT_GUIDELINES.md into comprehensive guide. Verify all documentation links.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}

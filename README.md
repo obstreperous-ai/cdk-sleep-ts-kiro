@@ -1,6 +1,31 @@
 # CDK Sleep Audio Pipeline
 
+[![CI](https://github.com/obstreperous-ai/cdk-sleep-ts-kiro/actions/workflows/ci.yml/badge.svg)](https://github.com/obstreperous-ai/cdk-sleep-ts-kiro/actions/workflows/ci.yml)
+![CDK Version](https://img.shields.io/badge/aws--cdk--lib-2.252.0-orange)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 An AWS CDK TypeScript project implementing an event-driven sleep audio processing pipeline. The system ingests audio files (or text prompts) via S3, orchestrates multi-step processing through AWS Step Functions, synthesizes speech with Amazon Polly, stores processed output, tracks metadata in DynamoDB, and delivers notifications through SNS.
+
+**Built entirely with AI coding agents using strict Test-Driven Development.**
+
+---
+
+## Table of Contents
+
+- [Architecture Overview](#architecture-overview)
+- [Experiment Methodology](#experiment-methodology)
+- [Meta-Prompting & Agent Guidelines](#meta-prompting--agent-guidelines)
+- [Environment Setup](#environment-setup)
+- [Development](#development)
+- [Usage](#usage)
+- [Multi-Environment Deployment](#multi-environment-deployment)
+- [TDD Rules](#tdd-rules)
+- [Useful Commands](#useful-commands)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+
+---
 
 ## Architecture Overview
 
@@ -14,7 +39,61 @@ The pipeline follows a serverless, event-driven design:
 6. **Metadata** - DynamoDB tracks pipeline execution state from PROCESSING to COMPLETED or FAILED.
 7. **Notifications** - SNS topics publish success or failure notifications to subscribers.
 
-For the full architecture details, diagrams, and component descriptions, see [ARCHITECTURE.md](./ARCHITECTURE.md).
+### High-Level Architecture
+
+```mermaid
+flowchart LR
+    S3In[S3 Input Bucket] -->|Object Created| EB[EventBridge]
+    EB -->|Start Execution| SFN[Step Functions]
+    SFN --> Lambda[Lambda / Polly]
+    Lambda --> S3Out[S3 Output Bucket]
+    Lambda --> DDB[(DynamoDB)]
+    SFN --> SNS[SNS Notifications]
+```
+
+For the full architecture details, component descriptions, state machine definition, retry policies, and the detailed Mermaid diagram, see [ARCHITECTURE.md](./ARCHITECTURE.md).
+
+## Experiment Methodology
+
+This project was developed as an experiment in building production-quality cloud infrastructure entirely through AI coding agents. The methodology centers on five key practices:
+
+### Pure Issue-Driven Development
+
+The entire system was built through **12+ iterative GitHub issues**, each representing a bounded unit of work that built on the verified output of previous issues. No code was written outside the context of a tracked issue. Each issue contained explicit requirements, ordered tasks, and measurable success criteria.
+
+### Strict TDD (Test-First Always)
+
+Every feature followed a rigid Red-Green-Refactor cycle:
+- A failing test was written first, defining the expected behavior
+- Only the minimal implementation needed to pass the test was added
+- Refactoring occurred only with all tests green
+
+This approach produced 196 tests covering 100% of infrastructure resources, Lambda handler logic, pipeline orchestration, and end-to-end validation scenarios.
+
+### Conventional Commits as Audit Trail
+
+Every commit uses [Conventional Commits](https://www.conventionalcommits.org/) format (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`), creating a machine-readable history that documents exactly what changed and why. The git log serves as a complete audit trail of the project's evolution.
+
+### ARCHITECTURE.md as Living Design Document
+
+[ARCHITECTURE.md](./ARCHITECTURE.md) was updated with every infrastructure change, ensuring the documentation always accurately reflects the implementation. The Mermaid diagram, component table, and detailed sections stay synchronized with the code.
+
+### Incremental, Compounding Iterations
+
+Each issue assumed the previous issue's work was complete and tested. This incremental approach meant:
+- No large-scale rewrites or integration phases
+- Each new feature built on a verified, working foundation
+- Regressions were caught immediately by the existing test suite
+- The architecture grew organically from simple to complex
+
+## Meta-Prompting & Agent Guidelines
+
+This project was built primarily with AI coding agents, guided by structured prompts and discipline protocols. The patterns used to direct these agents are documented and reusable:
+
+- **[META-PROMPTS.md](./META-PROMPTS.md)** - Reusable prompt templates, workflow patterns, and best practices for directing AI agents to build TDD infrastructure-as-code projects.
+- **[.github/AGENT_GUIDELINES.md](./.github/AGENT_GUIDELINES.md)** - Comprehensive guidelines defining the agent's role, TDD discipline, CDK best practices, validation checklist, and issue execution protocol.
+
+These documents capture the meta-prompting strategies that emerged from building this system: how to structure issues for agent consumption, how to enforce TDD discipline through prompt design, and what patterns produce the most reliable results.
 
 ## Environment Setup
 
