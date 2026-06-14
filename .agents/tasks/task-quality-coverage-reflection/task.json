@@ -2,7 +2,7 @@
   "task_id": "task-quality-coverage-reflection",
   "task_description": "Improve code quality, maximize test coverage, add coverage thresholds and CI reporting, refactor Lambda for modularity, and capture reflections in EXPERIMENT.md.",
   "status": "completed",
-  "feature_order": ["FEAT-001", "FEAT-002"],
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
   "blocked_reason": null,
   "verification": {
     "build": "pass",

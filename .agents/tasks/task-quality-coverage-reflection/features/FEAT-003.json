@@ -2,7 +2,7 @@
   "id": "FEAT-003",
   "type": "fix",
   "description": "Address review feedback: rename misleading test, restore objectKey in processTextFile error log, add coverage artifact upload to CI.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Rename test 'generateOutputKey handles filename without dot (uses full key as baseName)' to 'rejects extensionless filenames before reaching generateOutputKey' and update the comment.",
     "Add objectKey parameter to processTextFile function and include it in the structured error log for text-length validation.",
@@ -20,5 +20,5 @@
     "Run 'unset NODE_OPTIONS && npx jest --coverage' and verify all tests pass"
   ],
   "blocked_reason": null,
-  "findings": null
+  "findings": "All 3 review issues resolved. Test renamed accurately, objectKey restored in processTextFile error log, coverage artifact upload added to CI. All 200 tests pass, coverage remains 100% statements/lines/functions, 96.66% branches. Snapshot updated for Lambda code hash change."
 }
