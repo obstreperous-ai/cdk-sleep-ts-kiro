@@ -2,7 +2,7 @@
   "id": "FEAT-001",
   "type": "chore",
   "description": "Improve test coverage to 100% branches, add coverage configuration to jest.config.js with thresholds, add coverage reporting to CI, and close the remaining uncovered branch paths in the Lambda handler.",
-  "status": "in_progress",
+  "status": "completed",
   "steps": [
     "Add coverage configuration to jest.config.js: set collectCoverageFrom to include lib/**/*.ts and lambda/**/*.ts, add coverageThreshold with global thresholds (statements: 95, branches: 90, functions: 95, lines: 95), and add coverageReporters.",
     "Add test cases to test/audio-processor.test.ts to cover the two remaining branch gaps: (1) In generateOutputKey, a file without a dot (already impossible due to prior validation, but for branch coverage, test the streamToBuffer function with a string chunk input to cover line 66 'typeof chunk === string' branch). (2) A non-Error object thrown to cover line 244's String(error) branch in the catch block.",
@@ -19,5 +19,5 @@
     "Run 'unset NODE_OPTIONS && npx jest --coverage' and verify all tests pass and coverage meets thresholds"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "All 200 tests pass. Branch coverage reached 96.66% (29/30 branches). The one remaining uncovered branch is line 59 in generateOutputKey (dotIndex === -1 else path), which is unreachable because validation rejects extensionless files earlier. Coverage thresholds configured at 90% branches, 95% for statements/functions/lines. CI updated to run with --coverage."
 }
