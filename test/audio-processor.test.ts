@@ -642,11 +642,9 @@ describe('Audio Processor Lambda Handler', () => {
       await expect(handler(event, mockContext, () => {})).rejects.toBe(plainError);
     });
 
-    test('generateOutputKey handles filename without dot (uses full key as baseName)', async () => {
-      // This tests the branch where dotIndex === -1 in generateOutputKey
-      // However the validator rejects files without extensions earlier.
-      // The streamToBuffer string branch test above already covers line 66.
-      // This test verifies the error path is indeed reached for extensionless files
+    test('rejects extensionless filenames before reaching generateOutputKey', async () => {
+      // Extensionless files are rejected by validateEvent before generateOutputKey runs.
+      // The dotIndex === -1 branch in generateOutputKey remains unreachable dead code.
       const event = {
         detail: {
           bucket: { name: 'test-input-bucket' },

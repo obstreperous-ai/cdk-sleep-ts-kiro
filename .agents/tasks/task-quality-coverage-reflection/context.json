@@ -1,0 +1,27 @@
+{
+  "project_type": "TypeScript AWS CDK project (event-driven sleep audio processing pipeline)",
+  "language": "TypeScript",
+  "build_system": "npm with tsc for compilation, CDK for infrastructure synthesis",
+  "test_framework": "Jest 30 with ts-jest 29, uses aws-cdk-lib/assertions for CDK tests and jest.mock for Lambda unit tests",
+  "build_command": "unset NODE_OPTIONS && npx tsc",
+  "test_command": "unset NODE_OPTIONS && npx jest",
+  "verification_instructions": "1. Run 'unset NODE_OPTIONS && npx jest --coverage' to verify all tests pass with coverage. 2. Run 'unset NODE_OPTIONS && npx tsc --noEmit' to verify TypeScript compiles without errors.",
+  "snapshot_or_generated_files": "test/__snapshots__/cdk-base.test.ts.snap - regenerate with 'unset NODE_OPTIONS && npx jest --no-coverage -u' after intentional infrastructure changes",
+  "setup_instructions": "cd /projects/sandbox/cdk-sleep-ts-kiro && npm ci (already done)",
+  "environment_constraints": "COMMON_DEPENDENCIES network mode (can install packages from registries). Must use 'unset NODE_OPTIONS' before running node/npm/npx commands due to sandbox NODE_OPTIONS conflict. Node.js v22 available.",
+  "contribution_requirements": "Conventional commits required. TDD workflow. Branch naming: feat/, fix/, chore/, docs/. Must run npm test and npx cdk synth before pushing. Snapshot test updated only for intentional changes.",
+  "key_patterns": "CDK stack tests use Template.fromStack() with Match.objectLike(). Lambda tests use jest.mock() at module level for AWS SDK clients. E2E tests parse the synthesized state machine definition JSON. All source in lib/ and lambda/. Tests in test/.",
+  "relevant_files": [
+    "jest.config.js",
+    "lambda/audio-processor/index.ts",
+    "lib/cdk-base-stack.ts",
+    "lib/pipeline-stack.ts",
+    "test/audio-processor.test.ts",
+    "test/cdk-base.test.ts",
+    "test/e2e-validation.test.ts",
+    "test/pipeline-stack.test.ts",
+    ".github/workflows/ci.yml",
+    "EXPERIMENT.md"
+  ],
+  "directory_structure": "bin/ - CDK app entry point. lib/ - CDK stacks (cdk-base-stack.ts, pipeline-stack.ts). lambda/audio-processor/ - Lambda handler. test/ - Jest test files + __snapshots__/. .github/workflows/ - CI."
+}

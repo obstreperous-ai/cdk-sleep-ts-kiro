@@ -158,16 +158,18 @@ function validateEvent(
  * then invokes Polly with neural voice synthesis.
  *
  * @param inputBody - The raw text file content as a Buffer
+ * @param objectKey - The S3 object key (for structured error logging)
  * @param context - Lambda invocation context for structured logging
  * @returns The synthesized audio as a Buffer (MP3 format)
  * @throws Error if text exceeds the Polly character limit
  */
-async function processTextFile(inputBody: Buffer, context: Context): Promise<Buffer> {
+async function processTextFile(inputBody: Buffer, objectKey: string, context: Context): Promise<Buffer> {
   const textContent = inputBody.toString('utf-8');
 
   // Validate text length against Polly SynthesizeSpeech limit
   if (textContent.length > MAX_POLLY_TEXT_LENGTH) {
     logStructured('ERROR', 'Validation failed: text exceeds Polly SynthesizeSpeech character limit', context, {
+      objectKey,
       textLength: textContent.length,
       maxLength: MAX_POLLY_TEXT_LENGTH,
     });
@@ -255,7 +257,7 @@ export const handler: Handler<ProcessAudioEvent, ProcessAudioResponse> = async (
     if (extension === '.txt') {
       // Text input: synthesize speech using Polly
       logStructured('INFO', 'Text file detected, synthesizing speech with Polly', context, { objectKey });
-      outputBuffer = await processTextFile(inputBody, context);
+      outputBuffer = await processTextFile(inputBody, objectKey, context);
     } else {
       // Audio input: passthrough (audio DSP processing out of scope)
       logStructured('INFO', 'Audio file detected, processing passthrough', context, { objectKey, extension });
