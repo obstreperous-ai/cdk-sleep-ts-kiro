@@ -1,0 +1,29 @@
+{
+  "id": "FEAT-001",
+  "type": "docs",
+  "description": "Create comprehensive EXPERIMENT.md document capturing the experimental design, methodology, actors, meta-prompting strategy, issue history, and observations from this TDD IaC project. Then link it prominently from README.md.",
+  "status": "completed",
+  "steps": [
+    "Create EXPERIMENT.md at the repository root with the following sections: Overview & Goals, Experimental Setup (5 languages x 3 AIs matrix), Methodology (TDD, issue-driven development, architecture-as-code with Mermaid), Actors & Setup (Kiro + TypeScript flavor, obstreperous-ai as project owner), Prompting Patterns & Meta-Prompts (reference META-PROMPTS.md, describe the 5-discipline framework, discipline blocks in issues), Issue History Summary (table of all 14 issues with their GitHub numbers, titles, key outcomes, test counts, and merge dates), Key Decisions & Trade-offs (serverless event-driven, Step Functions orchestration, two-layer validation, SNS dual topics, exponential backoff, X-Ray tracing), and Preliminary Observations (strengths, challenges, testing insights, architecture fitness).",
+    "The document should be comprehensive, objective, and serve as a foundation for final evaluation of the experiment. Use data from the merged PRs: 12 PRs merged over June 1-13 2026, 196 tests produced, 100% resource coverage, conventional commits throughout.",
+    "Include a section describing the actor for this repo: Kiro (AI coding agent) operating as a Senior AWS CDK TypeScript TDD Specialist, with the TypeScript language flavor. Note this is one cell in a 5-language x 3-AI experimental matrix.",
+    "Document the iterative compounding approach: each issue built on verified output of previous issues, no large rewrites, regressions caught immediately by existing test suite.",
+    "Add a link to EXPERIMENT.md in README.md Table of Contents and add a brief reference in the existing Experiment Methodology section pointing readers to EXPERIMENT.md for the full design document.",
+    "Run npm test and npx cdk synth --context environment=dev to confirm no regressions from documentation changes."
+  ],
+  "acceptance_criteria": [
+    "EXPERIMENT.md exists at repository root with all required sections: Overview & Goals, Experimental Setup, Methodology, Actors & Setup, Prompting Patterns, Issue History Summary, Key Decisions & Trade-offs, Preliminary Observations",
+    "README.md links to EXPERIMENT.md prominently (in Table of Contents and Experiment Methodology section)",
+    "All internal markdown links resolve correctly",
+    "npm test passes without changes to test count (196 tests)",
+    "npx cdk synth --context environment=dev succeeds"
+  ],
+  "verification": [
+    "Run: unset NODE_OPTIONS && npx jest --no-coverage (expect 196 tests pass)",
+    "Run: npx cdk synth --context environment=dev (expect success)",
+    "Verify EXPERIMENT.md exists and contains all required section headings",
+    "Verify README.md contains a link to EXPERIMENT.md"
+  ],
+  "blocked_reason": null,
+  "findings": "Pre-existing snapshot test failure in test/cdk-base.test.ts (1 snapshot failed) - not caused by documentation changes. All other 195 tests pass. TypeScript compiles cleanly. CDK synth succeeds. Dependencies required npm ci to install (shallow clone did not include node_modules)."
+}
