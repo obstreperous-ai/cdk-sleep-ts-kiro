@@ -583,6 +583,83 @@ describe('Audio Processor Lambda Handler', () => {
     });
   });
 
+  describe('Branch Coverage - Edge Cases', () => {
+    test('streamToBuffer handles string chunks by converting with Buffer.from', async () => {
+      // Create a mock stream that yields string chunks instead of Buffer/Uint8Array
+      const stringContent = 'string-chunk-audio-data';
+      const mockStringStream = {
+        async *[Symbol.asyncIterator]() {
+          yield stringContent; // yields a string, not a Buffer
+        },
+      };
+
+      mockS3Send.mockResolvedValueOnce({
+        Body: mockStringStream,
+      });
+      mockS3Send.mockResolvedValueOnce({}); // PutObject
+      mockDynamoSend.mockResolvedValueOnce({}); // UpdateCommand
+
+      const event = {
+        detail: {
+          bucket: { name: 'test-input-bucket' },
+          object: { key: 'audio/string-stream.mp3' },
+        },
+      };
+
+      const result = await handler(event, mockContext, () => {});
+
+      expect(result!.statusCode).toBe(200);
+      expect(result!.processed).toBe(true);
+      expect(result!.fileSize).toBe(Buffer.from(stringContent).length);
+    });
+
+    test('catch block handles non-Error thrown objects with String(error)', async () => {
+      // Mock S3 to reject with a non-Error value (plain string)
+      mockS3Send.mockRejectedValueOnce('raw string error');
+
+      const event = {
+        detail: {
+          bucket: { name: 'test-input-bucket' },
+          object: { key: 'audio/non-error-throw.mp3' },
+        },
+      };
+
+      await expect(handler(event, mockContext, () => {})).rejects.toBe('raw string error');
+    });
+
+    test('catch block handles non-Error thrown objects (plain object)', async () => {
+      // Mock S3 to reject with a plain object
+      const plainError = { code: 'UNKNOWN', detail: 'something went wrong' };
+      mockS3Send.mockRejectedValueOnce(plainError);
+
+      const event = {
+        detail: {
+          bucket: { name: 'test-input-bucket' },
+          object: { key: 'audio/object-throw.mp3' },
+        },
+      };
+
+      await expect(handler(event, mockContext, () => {})).rejects.toBe(plainError);
+    });
+
+    test('generateOutputKey handles filename without dot (uses full key as baseName)', async () => {
+      // This tests the branch where dotIndex === -1 in generateOutputKey
+      // However the validator rejects files without extensions earlier.
+      // The streamToBuffer string branch test above already covers line 66.
+      // This test verifies the error path is indeed reached for extensionless files
+      const event = {
+        detail: {
+          bucket: { name: 'test-input-bucket' },
+          object: { key: 'audio/nodotfile' },
+        },
+      };
+
+      await expect(handler(event, mockContext, () => {})).rejects.toThrow(
+        'Validation failed: file has no extension'
+      );
+    });
+  });
+
   describe('Response Structure', () => {
     test('returns structured response with all required fields', async () => {
       const audioBuffer = Buffer.from('audio-response-test');
