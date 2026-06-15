@@ -32,6 +32,14 @@ interface ProcessAudioResponse {
   fileSize?: number;
 }
 
+/**
+ * Emits a structured JSON log entry with standard fields for observability.
+ *
+ * @param level - Log severity level (e.g. 'INFO', 'ERROR')
+ * @param message - Human-readable log message
+ * @param context - Lambda invocation context (provides requestId, functionName)
+ * @param extra - Additional key-value pairs to include in the log entry
+ */
 function logStructured(level: string, message: string, context: Context, extra?: Record<string, unknown>): void {
   const logEntry = {
     timestamp: new Date().toISOString(),
@@ -48,18 +56,36 @@ function logStructured(level: string, message: string, context: Context, extra?:
   }
 }
 
+/**
+ * Extracts the file extension (including the leading dot) from an S3 object key.
+ * Returns an empty string if the key has no dot.
+ */
 function getExtension(key: string): string {
   const dotIndex = key.lastIndexOf('.');
   if (dotIndex === -1) return '';
   return key.substring(dotIndex).toLowerCase();
 }
 
+/**
+ * Generates a unique output key in the format: processed/<baseName>-<timestamp>.mp3
+ *
+ * @param objectKey - The original S3 object key
+ * @param timestamp - A unique timestamp string for deduplication
+ * @returns The constructed output key path
+ */
 function generateOutputKey(objectKey: string, timestamp: string): string {
   const dotIndex = objectKey.lastIndexOf('.');
   const baseName = dotIndex !== -1 ? objectKey.substring(0, dotIndex) : objectKey;
   return `processed/${baseName}-${timestamp}.mp3`;
 }
 
+/**
+ * Converts an async iterable stream (from S3 or Polly responses) into a Buffer.
+ * Handles both Buffer/Uint8Array chunks and string chunks.
+ *
+ * @param stream - An async iterable that yields binary or string chunks
+ * @returns A single concatenated Buffer containing all stream data
+ */
 async function streamToBuffer(stream: any): Promise<Buffer> {
   const chunks: Uint8Array[] = [];
   for await (const chunk of stream) {
@@ -68,14 +94,21 @@ async function streamToBuffer(stream: any): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
-export const handler: Handler<ProcessAudioEvent, ProcessAudioResponse> = async (event, context) => {
-  logStructured('INFO', 'SleepAudioProcessor invoked', context, { event });
-
-  const tableName = process.env.TABLE_NAME;
-  const inputBucketName = process.env.INPUT_BUCKET_NAME;
-  const outputBucketName = process.env.OUTPUT_BUCKET_NAME;
-
-  // Validate required input fields
+/**
+ * Validates the incoming S3 event, ensuring all required fields are present and valid.
+ * Throws descriptive errors for invalid input, enabling fast-fail before processing.
+ *
+ * @param event - The Lambda event payload from EventBridge
+ * @param inputBucketName - Expected S3 input bucket name from environment
+ * @param context - Lambda invocation context for structured logging
+ * @returns Validated event data: bucketName, objectKey, and file extension
+ * @throws Error if any validation check fails
+ */
+function validateEvent(
+  event: ProcessAudioEvent,
+  inputBucketName: string | undefined,
+  context: Context
+): { bucketName: string; objectKey: string; extension: string } {
   const bucketName = event.detail?.bucket?.name;
   if (!bucketName) {
     logStructured('ERROR', 'Validation failed: missing detail.bucket.name in event', context);
@@ -115,6 +148,74 @@ export const handler: Handler<ProcessAudioEvent, ProcessAudioResponse> = async (
       `Validation failed: unsupported file extension '${extension}'. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`
     );
   }
+
+  return { bucketName, objectKey, extension };
+}
+
+/**
+ * Processes a text file by synthesizing speech using AWS Polly.
+ * Validates the text length against the Polly SynthesizeSpeech character limit,
+ * then invokes Polly with neural voice synthesis.
+ *
+ * @param inputBody - The raw text file content as a Buffer
+ * @param objectKey - The S3 object key (for structured error logging)
+ * @param context - Lambda invocation context for structured logging
+ * @returns The synthesized audio as a Buffer (MP3 format)
+ * @throws Error if text exceeds the Polly character limit
+ */
+async function processTextFile(inputBody: Buffer, objectKey: string, context: Context): Promise<Buffer> {
+  const textContent = inputBody.toString('utf-8');
+
+  // Validate text length against Polly SynthesizeSpeech limit
+  if (textContent.length > MAX_POLLY_TEXT_LENGTH) {
+    logStructured('ERROR', 'Validation failed: text exceeds Polly SynthesizeSpeech character limit', context, {
+      objectKey,
+      textLength: textContent.length,
+      maxLength: MAX_POLLY_TEXT_LENGTH,
+    });
+    throw new Error(
+      `Validation failed: text length ${textContent.length} characters exceeds Polly SynthesizeSpeech limit of ${MAX_POLLY_TEXT_LENGTH} characters`
+    );
+  }
+
+  const pollyResponse = await pollyClient.send(new SynthesizeSpeechCommand({
+    Engine: 'neural',
+    VoiceId: 'Joanna',
+    OutputFormat: 'mp3',
+    Text: textContent,
+  }));
+
+  return streamToBuffer(pollyResponse.AudioStream);
+}
+
+/**
+ * Processes an audio file via passthrough. Currently returns the input unchanged;
+ * future DSP processing (normalization, noise reduction, etc.) would be added here.
+ *
+ * @param inputBody - The raw audio file content as a Buffer
+ * @returns The audio Buffer unchanged (passthrough)
+ */
+async function processAudioFile(inputBody: Buffer): Promise<Buffer> {
+  return inputBody;
+}
+
+/**
+ * Main Lambda handler for the sleep audio processing pipeline.
+ * Orchestrates the full processing flow: event validation, S3 download,
+ * content processing (text-to-speech or audio passthrough), S3 upload,
+ * and DynamoDB metadata update.
+ *
+ * Triggered by EventBridge when a new object is uploaded to the input S3 bucket.
+ */
+export const handler: Handler<ProcessAudioEvent, ProcessAudioResponse> = async (event, context) => {
+  logStructured('INFO', 'SleepAudioProcessor invoked', context, { event });
+
+  const tableName = process.env.TABLE_NAME;
+  const inputBucketName = process.env.INPUT_BUCKET_NAME;
+  const outputBucketName = process.env.OUTPUT_BUCKET_NAME;
+
+  // Validate required input fields
+  const { bucketName, objectKey, extension } = validateEvent(event, inputBucketName, context);
 
   const audioId = objectKey;
   const timestamp = Date.now().toString();
@@ -156,32 +257,11 @@ export const handler: Handler<ProcessAudioEvent, ProcessAudioResponse> = async (
     if (extension === '.txt') {
       // Text input: synthesize speech using Polly
       logStructured('INFO', 'Text file detected, synthesizing speech with Polly', context, { objectKey });
-      const textContent = inputBody.toString('utf-8');
-
-      // Validate text length against Polly SynthesizeSpeech limit
-      if (textContent.length > MAX_POLLY_TEXT_LENGTH) {
-        logStructured('ERROR', 'Validation failed: text exceeds Polly SynthesizeSpeech character limit', context, {
-          objectKey,
-          textLength: textContent.length,
-          maxLength: MAX_POLLY_TEXT_LENGTH,
-        });
-        throw new Error(
-          `Validation failed: text length ${textContent.length} characters exceeds Polly SynthesizeSpeech limit of ${MAX_POLLY_TEXT_LENGTH} characters`
-        );
-      }
-
-      const pollyResponse = await pollyClient.send(new SynthesizeSpeechCommand({
-        Engine: 'neural',
-        VoiceId: 'Joanna',
-        OutputFormat: 'mp3',
-        Text: textContent,
-      }));
-
-      outputBuffer = await streamToBuffer(pollyResponse.AudioStream);
+      outputBuffer = await processTextFile(inputBody, objectKey, context);
     } else {
       // Audio input: passthrough (audio DSP processing out of scope)
       logStructured('INFO', 'Audio file detected, processing passthrough', context, { objectKey, extension });
-      outputBuffer = inputBody;
+      outputBuffer = await processAudioFile(inputBody);
     }
 
     // Step 3: Upload processed output to S3 output bucket

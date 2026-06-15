@@ -1,0 +1,24 @@
+{
+  "id": "FEAT-003",
+  "type": "fix",
+  "description": "Address review feedback: rename misleading test, restore objectKey in processTextFile error log, add coverage artifact upload to CI.",
+  "status": "completed",
+  "steps": [
+    "Rename test 'generateOutputKey handles filename without dot (uses full key as baseName)' to 'rejects extensionless filenames before reaching generateOutputKey' and update the comment.",
+    "Add objectKey parameter to processTextFile function and include it in the structured error log for text-length validation.",
+    "Add actions/upload-artifact step to .github/workflows/ci.yml to upload coverage/ directory.",
+    "Run 'unset NODE_OPTIONS && npx jest --coverage' to verify all tests pass.",
+    "Update snapshot if Lambda code hash changed."
+  ],
+  "acceptance_criteria": [
+    "Test name accurately reflects that it tests the validateEvent rejection path",
+    "processTextFile includes objectKey in error log for text-length validation failure",
+    "CI workflow uploads coverage/ directory as an artifact",
+    "All tests pass with coverage thresholds met"
+  ],
+  "verification": [
+    "Run 'unset NODE_OPTIONS && npx jest --coverage' and verify all tests pass"
+  ],
+  "blocked_reason": null,
+  "findings": "All 3 review issues resolved. Test renamed accurately, objectKey restored in processTextFile error log, coverage artifact upload added to CI. All 200 tests pass, coverage remains 100% statements/lines/functions, 96.66% branches. Snapshot updated for Lambda code hash change."
+}
